@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
+import { User } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentView: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas';
   onNavigate: (view: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas') => void;
   onOpenNewContact: () => void;
+  onLogout: () => void;
+  user: User | null;
 }
 
-export default function Layout({ children, currentView, onNavigate, onOpenNewContact }: LayoutProps) {
+export default function Layout({ children, currentView, onNavigate, onOpenNewContact, onLogout, user }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -39,7 +42,9 @@ export default function Layout({ children, currentView, onNavigate, onOpenNewCon
           onOpenNewContact();
           setIsMobileMenuOpen(false);
         }}
+        onLogout={onLogout}
         isOpen={isMobileMenuOpen}
+        user={user}
       />
       
       {/* Overlay for mobile */}

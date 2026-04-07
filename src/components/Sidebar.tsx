@@ -1,13 +1,26 @@
 import React from 'react';
+import { User } from '../types';
 
 interface SidebarProps {
   currentView: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas';
   onNavigate: (view: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas') => void;
   onOpenNewContact: () => void;
+  onLogout: () => void;
   isOpen?: boolean;
+  user: User | null;
 }
 
-export default function Sidebar({ currentView, onNavigate, onOpenNewContact, isOpen = false }: SidebarProps) {
+export default function Sidebar({ currentView, onNavigate, onOpenNewContact, onLogout, isOpen = false, user }: SidebarProps) {
+  // Get initials from user name
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   return (
     <aside className={`fixed left-0 top-0 h-screen flex flex-col z-40 w-64 border-r border-[#4A4453]/15 bg-[#1C1B1C] transition-transform duration-300 shadow-2xl shadow-black/40 font-['Manrope'] tracking-tight ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
       <div className="p-6">
@@ -81,16 +94,23 @@ export default function Sidebar({ currentView, onNavigate, onOpenNewContact, isO
       </div>
       
       <div className="mt-auto p-6 border-t border-[#4A4453]/15">
-        <div className="flex items-center gap-3 cursor-pointer group">
-          <img 
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20 group-hover:ring-primary/50 transition-all" 
-            alt="Alejandro Lezac" 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnPtbQNPwofNM_Uq5m1Y8lAQ9P7SdwuC_KmooK5cpQGBApDKCnWhHDbN0wLEXJqjVx590WRhmiBLzTsJp5yc1t-b7iE7VAPUEUBt3dHrN7NwkywscEI8j8Lbr3AxIfEJKCWCIEMbOSlO1NF5wGHizUO47wgv-tNjBtnJP5tVODdF4mqvPP3a_-02VK8zJj_itxpuB99-1xFoEqZDCUccGDTALvxF6yQ8W-0WZ74l1h-JIaIKtQt3yW-zEzlRT3PgaRA0CjxC6YAgPo"
-          />
-          <div className="overflow-hidden text-left">
-            <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">Alejandro Lezac</p>
-            <p className="text-[10px] text-outline truncate uppercase tracking-wider">Managing Director</p>
+        <div className="flex items-center justify-between group">
+          <div className="flex items-center gap-3 cursor-pointer">
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center ring-2 ring-primary/20 group-hover:ring-primary/50 transition-all overflow-hidden relative">
+              <span className="text-primary text-xs font-bold">{user ? getInitials(user.name) : '??'}</span>
+            </div>
+            <div className="overflow-hidden text-left">
+              <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{user?.name || 'Usuario'}</p>
+              <p className="text-[10px] text-outline truncate uppercase tracking-wider">{user?.role === 'admin' ? 'Strategic Admin' : 'Sales Executive'}</p>
+            </div>
           </div>
+          <button 
+            onClick={onLogout}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-outline hover:bg-error/10 hover:text-error transition-colors"
+            title="Cerrar Sesión"
+          >
+            <span className="material-symbols-outlined text-[18px]">logout</span>
+          </button>
         </div>
       </div>
     </aside>

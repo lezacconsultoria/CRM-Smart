@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ContactData, Note, Task, StageData } from '../types';
+import { ContactData, Note, Task, StageData, User } from '../types';
 
 interface ContactDetailsProps {
   contact: ContactData | null;
   onEdit: () => void;
   onUpdateContact: (contact: ContactData) => void;
+  user?: User | null;
 }
 
 const getDaysInMonth = (year: number, month: number) => {
@@ -15,18 +16,28 @@ const getFirstDayOfMonth = (year: number, month: number) => {
   return new Date(year, month, 1).getDay();
 };
 
-export default function ContactDetails({ contact, onEdit, onUpdateContact }: ContactDetailsProps) {
+export default function ContactDetails({ contact, onEdit, onUpdateContact, user }: ContactDetailsProps) {
   const [currentStage, setCurrentStage] = useState(1);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [stages, setStages] = useState<StageData[]>(contact?.stages || [
+  const defaultStages = [
     { id: 1, name: 'Descubrimiento', notes: [] },
     { id: 2, name: 'Propuesta', notes: [] },
     { id: 3, name: 'Negociación', notes: [] },
-  ]);
+  ];
+
+  const [stages, setStages] = useState<StageData[]>(
+    (contact?.stages && contact.stages.length > 0) ? contact.stages : defaultStages
+  );
   const [noteInput, setNoteInput] = useState('');
   const [selectedReminder, setSelectedReminder] = useState<number | null>(null);
   const [selectedReminderDate, setSelectedReminderDate] = useState<string>('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  const canViewItem = (createdBy?: string) => {
+    if (!user) return true;
+    if (user.role === 'admin') return true;
+    return !createdBy || createdBy === user.name;
+  };
 
   const NOTE_TAGS = ['Llamada', 'Reunión', 'Email', 'Seguimiento', 'Importante'];
 
@@ -37,11 +48,7 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
 
   useEffect(() => {
     if (contact) {
-      setStages(contact.stages || [
-        { id: 1, name: 'Descubrimiento', notes: [] },
-        { id: 2, name: 'Propuesta', notes: [] },
-        { id: 3, name: 'Negociación', notes: [] },
-      ]);
+      setStages((contact.stages && contact.stages.length > 0) ? contact.stages : defaultStages);
       setTasks(contact.tasks || []);
     }
   }, [contact]);
@@ -68,7 +75,8 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
       title: newTaskTitle,
       dueDate: targetDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
       dueDateTimestamp: targetDate.getTime(),
-      completed: false
+      completed: false,
+      createdBy: user?.name,
     };
     
     const updatedTasks = [...tasks, newTask];
@@ -127,6 +135,7 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
       reminderDays: reminderDays,
       reminderDate: reminderDateStr,
       reminderTimestamp,
+      createdBy: user?.name,
     };
 
     const updatedStages = stages.map(stage => {
@@ -180,8 +189,21 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
                 <span className="px-3 py-0.5 bg-secondary-container/10 text-secondary-container text-[10px] font-bold uppercase tracking-widest rounded-full border border-secondary-container/20 whitespace-nowrap">
                   {contact.id === '1' ? 'Platinum Client' : 'Lead'}
                 </span>
+                {contact.isEmailValid && (
+                  <span className="px-3 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-widest rounded-full border border-green-500/20 whitespace-nowrap flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[12px]">verified</span>
+                    Email Válido
+                  </span>
+                )}
               </div>
-              <p className="text-on-surface-variant font-medium mb-3 text-sm md:text-base truncate">{contact.jobTitle || 'Sin cargo'} @ {contact.company}</p>
+              <p className="text-on-surface-variant font-medium mb-3 text-sm md:text-base truncate">
+                {contact.jobTitle || 'Sin cargo'} @ {contact.company}
+                {contact.companyType && (
+                  <span className="ml-2 px-2 py-0.5 bg-outline-variant/10 text-outline text-[9px] font-bold uppercase rounded border border-outline-variant/20 italic">
+                    {contact.companyType}
+                  </span>
+                )}
+              </p>
               <div className="flex flex-wrap items-center gap-4 md:gap-6">
                 <div className="flex items-center gap-2 text-outline">
                   <span className="material-symbols-outlined text-sm shrink-0">mail</span>
@@ -193,12 +215,51 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
                     <span className="text-xs whitespace-nowrap">{contact.countryCode} {contact.phone}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-outline">
-                  <span className="material-symbols-outlined text-sm shrink-0">
-                    {contact.source === 'linkedin' ? 'link' : contact.source === 'whatsapp' ? 'chat' : 'mail'}
-                  </span>
-                  <span className="text-xs capitalize">{contact.source || 'Directo'}</span>
+                {(contact.province || contact.country) && (
+                  <div className="flex items-center gap-2 text-outline">
+                    <span className="material-symbols-outlined text-sm shrink-0">location_on</span>
+                    <span className="text-xs truncate">
+                      {contact.province}{contact.province && contact.country ? ', ' : ''}{contact.country}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-outline">
+                    <span className="material-symbols-outlined text-sm shrink-0">
+                      {contact.source === 'linkedin' ? 'link' : contact.source === 'whatsapp' ? 'chat' : 'mail'}
+                    </span>
+                    <span className="text-xs capitalize">{contact.source || 'Directo'}</span>
+                  </div>
+                  {contact.profileLink && (
+                    <a 
+                      href={contact.profileLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary hover:bg-primary/20 rounded-md border border-primary/20 transition-all group"
+                      title="Ver perfil o red social"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                      <span className="text-[10px] font-bold group-hover:underline">Ver Perfil</span>
+                    </a>
+                  )}
                 </div>
+                {contact.activity && (
+                  <div className="flex items-center gap-2 text-outline bg-surface-container-high/50 px-2.5 py-1 rounded-md border border-outline-variant/10">
+                    <span className="material-symbols-outlined text-[14px] text-primary">work</span>
+                    <span className="text-[11px] font-medium">{contact.activity}</span>
+                  </div>
+                )}
+                {contact.dbSource && (
+                  <div className="flex items-center gap-2 text-outline bg-surface-container-high/50 px-2.5 py-1 rounded-md border border-outline-variant/10">
+                    <span className="material-symbols-outlined text-[14px] text-secondary">database</span>
+                    <span className="text-[11px] font-medium">{contact.dbSource}</span>
+                  </div>
+                )}
+                {contact.externalId && (
+                  <div className="flex items-center gap-2 text-outline/50 px-2.5 py-1">
+                    <span className="text-[10px] font-mono">ID: {contact.externalId}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -360,13 +421,13 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
                 Línea de tiempo - Etapa {currentStage}
               </h4>
               
-              {stages.find(s => s.id === currentStage)?.notes.length === 0 ? (
+              {stages.find(s => s.id === currentStage)?.notes.filter(n => canViewItem(n.createdBy)).length === 0 ? (
                 <div className="text-center py-8 border border-dashed border-outline-variant/20 rounded-xl">
                   <p className="text-sm text-outline">No hay observaciones en esta etapa todavía.</p>
                 </div>
               ) : (
                 <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-primary/50 before:via-outline-variant/20 before:to-transparent">
-                  {stages.find(s => s.id === currentStage)?.notes.map((note) => (
+                  {stages.find(s => s.id === currentStage)?.notes.filter(n => canViewItem(n.createdBy)).map((note) => (
                     <div key={note.id} className="relative flex items-start gap-6 group animate-in fade-in slide-in-from-bottom-2">
                       <div className="relative z-10 flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-high border border-primary/40 text-primary shadow-xl">
                         <span className="material-symbols-outlined text-sm">edit_note</span>
@@ -410,11 +471,11 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
                       <h5 className="text-xs font-bold text-white uppercase tracking-wider bg-surface-container-high inline-block px-3 py-1 rounded-lg">
                         Etapa {stage.id}: {stage.name}
                       </h5>
-                      {stage.notes.length === 0 ? (
-                        <p className="text-xs text-outline italic ml-4">Sin observaciones</p>
+                      {stage.notes.filter(n => canViewItem(n.createdBy)).length === 0 ? (
+                        <p className="text-xs text-outline italic ml-4">Sin observaciones visibles</p>
                       ) : (
                         <div className="relative space-y-4 before:absolute before:inset-0 before:ml-4 before:-translate-x-px before:h-full before:w-px before:bg-outline-variant/20">
-                          {stage.notes.map(note => (
+                          {stage.notes.filter(n => canViewItem(n.createdBy)).map(note => (
                             <div key={note.id} className="relative flex items-start gap-4 ml-1">
                               <div className="relative z-10 w-6 h-6 rounded-full bg-surface-container border border-outline-variant/30 flex items-center justify-center mt-1">
                                 <div className="w-1.5 h-1.5 rounded-full bg-outline"></div>
@@ -461,7 +522,7 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
               <button className="text-primary text-[11px] font-bold hover:underline">Ver todas</button>
             </div>
             <div className="space-y-4">
-              {tasks.map(task => (
+              {tasks.filter(t => canViewItem(t.createdBy)).map(task => (
                 <div key={task.id} className={`flex items-start gap-3 p-3 rounded-lg bg-surface-container border border-outline-variant/5 transition-opacity ${task.completed ? 'opacity-50' : 'opacity-100'}`}>
                   <input 
                     className="mt-1 w-4 h-4 rounded border-outline-variant bg-transparent text-primary focus:ring-primary/20 cursor-pointer" 
@@ -578,6 +639,7 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
                 const dayEvents: { title: string, type: string }[] = [];
                 stages.forEach(stage => {
                   stage.notes.forEach(note => {
+                    if (!canViewItem(note.createdBy)) return;
                     if (note.reminderTimestamp && new Date(note.reminderTimestamp).toDateString() === date.toDateString()) {
                       dayEvents.push({ title: `Recordatorio: Etapa ${stage.id}`, type: 'note' });
                     }
@@ -585,6 +647,7 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
                 });
                 
                 tasks.forEach(task => {
+                  if (!canViewItem(task.createdBy)) return;
                   if (task.dueDateTimestamp && !task.completed && new Date(task.dueDateTimestamp).toDateString() === date.toDateString()) {
                     dayEvents.push({ title: `Tarea: ${task.title}`, type: 'task' });
                   }
@@ -593,34 +656,45 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact }: Con
                 const hasNote = dayEvents.some(e => e.type === 'note');
                 const hasTask = dayEvents.some(e => e.type === 'task');
                 
+                let dayClasses = "h-8 w-8 flex items-center justify-center rounded-full text-xs relative cursor-pointer transition-all duration-300 ";
+                let textClasses = "text-on-surface ";
+
+                if (isToday) {
+                  dayClasses += "bg-white text-black font-bold shadow-lg shadow-white/10 scale-110 z-10 ";
+                } else if (hasNote && hasTask) {
+                  dayClasses += "bg-gradient-to-br from-secondary to-error text-white font-bold ";
+                } else if (hasNote) {
+                  dayClasses += "bg-secondary/40 text-secondary border border-secondary/30 font-bold ";
+                } else if (hasTask) {
+                  dayClasses += "bg-error/40 text-error border border-error/30 font-bold ";
+                } else {
+                  dayClasses += "hover:bg-surface-bright text-on-surface ";
+                }
+
                 return (
                   <div 
                     key={day} 
-                    className={`h-8 w-8 flex items-center justify-center rounded-full text-xs relative cursor-pointer hover:bg-surface-bright transition-colors ${
-                      isToday ? 'bg-primary text-on-primary font-bold' : 'text-on-surface'
-                    }`}
+                    className={dayClasses}
                     title={dayEvents.map(e => e.title).join('\n')}
                   >
                     {day}
-                    {(hasNote || hasTask) && (
-                      <div className="absolute bottom-1 flex gap-0.5">
-                        {hasNote && <div className="w-1 h-1 rounded-full bg-secondary"></div>}
-                        {hasTask && <div className="w-1 h-1 rounded-full bg-error"></div>}
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
             
-            <div className="mt-6 pt-4 border-t border-outline-variant/10 flex items-center gap-4 justify-center">
+            <div className="mt-6 pt-4 border-t border-outline-variant/10 flex flex-wrap items-center gap-x-4 gap-y-2 justify-center">
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-secondary"></div>
-                <span className="text-[10px] text-outline">Recordatorios</span>
+                <div className="w-3 h-3 rounded-full bg-secondary/40 border border-secondary/30"></div>
+                <span className="text-[10px] text-outline font-medium">Recordatorios</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-error"></div>
-                <span className="text-[10px] text-outline">Tareas</span>
+                <div className="w-3 h-3 rounded-full bg-error/40 border border-error/30"></div>
+                <span className="text-[10px] text-outline font-medium">Tareas</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-gradient-to-br from-secondary to-error"></div>
+                <span className="text-[10px] text-outline font-medium">Ambos</span>
               </div>
             </div>
           </div>

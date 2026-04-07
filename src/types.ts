@@ -1,3 +1,10 @@
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'user';
+}
+
 export interface Note {
   id: string;
   text: string;
@@ -6,6 +13,7 @@ export interface Note {
   reminderDays?: number;
   reminderDate?: string;
   reminderTimestamp?: number;
+  createdBy?: string;
 }
 
 export interface Task {
@@ -16,6 +24,7 @@ export interface Task {
   isOverdue?: boolean;
   contactId?: string;
   dueDateTimestamp?: number;
+  createdBy?: string;
 }
 
 export interface StageData {
@@ -26,14 +35,23 @@ export interface StageData {
 
 export interface ContactData {
   id?: string;
+  importDate?: string;
+  externalId?: string;
   firstName: string;
   lastName: string;
   company: string;
+  activity?: string;
+  companyType?: string;
+  jobTitle: string;
+  profileLink?: string;
   email: string;
+  isEmailValid?: boolean;
   phone: string;
   countryCode?: string;
-  jobTitle: string;
-  source: 'linkedin' | 'whatsapp' | 'email' | '';
+  province?: string;
+  country?: string;
+  source: 'linkedin' | 'whatsapp' | 'email' | 'db' | '';
+  dbSource?: string;
   assignedTo?: string;
   tasks?: Task[];
   stages?: StageData[];

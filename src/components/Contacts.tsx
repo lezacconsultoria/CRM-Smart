@@ -4,13 +4,38 @@ import { ContactData } from '../types';
 interface ContactsProps {
   onViewChange?: (view: 'contact-details') => void;
   onOpenNewContact?: () => void;
+  onOpenImportModal?: () => void;
   onSelectContact?: (contact: ContactData) => void;
+  onEditContact?: (contact: ContactData) => void;
+  onDeleteContact?: (id: string) => void;
+  onDeleteMany?: (ids: string[]) => void;
   contacts?: ContactData[];
 }
 
-export default function Contacts({ onViewChange, onOpenNewContact, onSelectContact, contacts = [] }: ContactsProps) {
+export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportModal, onSelectContact, onEditContact, onDeleteContact, onDeleteMany, contacts = [] }: ContactsProps) {
   const [statusFilter, setStatusFilter] = React.useState('Todos los Estados');
   const [sourceFilter, setSourceFilter] = React.useState('Todos los Orígenes');
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [dbSourceFilter, setDbSourceFilter] = React.useState('Todas las Bases');
+  const [activityFilter, setActivityFilter] = React.useState('Todas las Actividades');
+  const [isValidEmailOnly, setIsValidEmailOnly] = React.useState(false);
+  const [countryFilter, setCountryFilter] = React.useState('Todos los Países');
+  const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 50;
+
+  // Clean up selection when contacts change (e.g., after deletion)
+  React.useEffect(() => {
+    const validIds = new Set(contacts.map(c => c.id).filter(Boolean));
+    setSelectedIds(prev => {
+      const newSet = new Set<string>();
+      prev.forEach(id => {
+        if (validIds.has(id)) newSet.add(id);
+      });
+      return newSet.size === prev.size ? prev : newSet;
+    });
+  }, [contacts]);
   
   const getNextAction = (contact: ContactData) => {
     let nextAction = null;
@@ -51,19 +76,95 @@ export default function Contacts({ onViewChange, onOpenNewContact, onSelectConta
     return { label: 'Nuevo', color: 'bg-surface-container-highest text-outline border-outline-variant/30' };
   };
 
+  // Get unique values for filters
+  const availableBases = React.useMemo(() => {
+    const bases = new Set<string>();
+    contacts.forEach(c => {
+      if (c.dbSource) bases.add(c.dbSource);
+    });
+    return Array.from(bases).sort();
+  }, [contacts]);
+
+  const availableActivities = React.useMemo(() => {
+    const activities = new Set<string>();
+    contacts.forEach(c => {
+      if (c.activity) activities.add(c.activity);
+    });
+    return Array.from(activities).sort();
+  }, [contacts]);
+
+  const availableCountries = React.useMemo(() => {
+    const countries = new Set<string>();
+    contacts.forEach(c => {
+      if (c.country) countries.add(c.country);
+    });
+    return Array.from(countries).sort();
+  }, [contacts]);
+
   const filteredContacts = contacts.filter(contact => {
+    // 1. Status Filter
     const state = getContactState(contact).label;
     const matchStatus = statusFilter === 'Todos los Estados' || state === statusFilter;
     
+    // 2. Source Filter
     let sourceLabel = 'Directo';
     if (contact.source === 'linkedin') sourceLabel = 'LinkedIn';
     else if (contact.source === 'whatsapp') sourceLabel = 'WhatsApp';
     else if (contact.source === 'email') sourceLabel = 'Email';
-    
     const matchSource = sourceFilter === 'Todos los Orígenes' || sourceLabel === sourceFilter;
 
-    return matchStatus && matchSource;
+    // 3. Search Query (Name, Company, Email)
+    const searchLower = searchQuery.toLowerCase();
+    const matchSearch = !searchQuery || 
+      `${contact.firstName} ${contact.lastName}`.toLowerCase().includes(searchLower) ||
+      contact.company.toLowerCase().includes(searchLower) ||
+      contact.email.toLowerCase().includes(searchLower) ||
+      (contact.jobTitle && contact.jobTitle.toLowerCase().includes(searchLower));
+
+    // 4. Base Filter (dbSource)
+    const matchBase = dbSourceFilter === 'Todas las Bases' || contact.dbSource === dbSourceFilter;
+
+    // 5. Activity Filter
+    const matchActivity = activityFilter === 'Todas las Actividades' || contact.activity === activityFilter;
+
+    // 6. Valid Email Filter
+    const matchEmailValid = !isValidEmailOnly || contact.isEmailValid;
+
+    // 7. Country Filter
+    const matchCountry = countryFilter === 'Todos los Países' || contact.country === countryFilter;
+
+    return matchStatus && matchSource && matchSearch && matchBase && matchActivity && matchEmailValid && matchCountry;
   });
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredContacts.length && filteredContacts.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredContacts.map(c => c.id!).filter(Boolean)));
+    }
+  };
+
+  // Reset to first page when any individual filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, sourceFilter, searchQuery, dbSourceFilter, activityFilter, isValidEmailOnly, countryFilter]);
+
+  const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
+  const paginatedContacts = filteredContacts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
 
   return (
     <div className="pt-6 px-4 md:pt-8 md:px-8 pb-24 md:pb-12 min-h-screen">
@@ -100,57 +201,218 @@ export default function Contacts({ onViewChange, onOpenNewContact, onSelectConta
       </div>
 
       {/* Filters Bar (Glassmorphism inspired) */}
-      <div className="bg-surface-container p-4 rounded-xl mb-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 border border-outline-variant/5">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="flex items-center gap-2 bg-surface-container-high px-3 py-2 rounded-lg border border-outline-variant/10 flex-1">
-            <span className="text-xs text-outline whitespace-nowrap">Estado:</span>
-            <select 
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-transparent border-none text-xs font-bold focus:ring-0 p-0 pr-6 text-on-surface-variant outline-none w-full"
-            >
-              <option>Todos los Estados</option>
-              <option>Nuevo</option>
-              <option>Descubrimiento</option>
-              <option>Propuesta</option>
-              <option>Negociación</option>
-            </select>
+      <div className="space-y-4 mb-6">
+        <div className="bg-surface-container p-4 rounded-xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 border border-outline-variant/5">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 flex-1">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+              <input 
+                type="text"
+                placeholder="Buscar por nombre, empresa o email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-surface-container-high border border-outline-variant/10 rounded-lg pl-10 pr-4 py-2 text-xs font-medium text-white focus:outline-none focus:border-primary/50 transition-all placeholder:text-outline/50"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 bg-surface-container-high px-3 py-2 rounded-lg border border-outline-variant/10">
+                <span className="text-[10px] text-outline whitespace-nowrap font-bold uppercase tracking-tight">Estado:</span>
+                <select 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-transparent border-none text-xs font-bold focus:ring-0 p-0 pr-8 text-on-surface-variant outline-none cursor-pointer appearance-none min-w-[120px]"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23958e9f' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right center',
+                    backgroundSize: '14px'
+                  }}
+                >
+                  <option className="bg-[#2a2a2b] text-white">Todos los Estados</option>
+                  <option className="bg-[#2a2a2b] text-white">Nuevo</option>
+                  <option className="bg-[#2a2a2b] text-white">Descubrimiento</option>
+                  <option className="bg-[#2a2a2b] text-white">Propuesta</option>
+                  <option className="bg-[#2a2a2b] text-white">Negociación</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 bg-surface-container-high px-3 py-2 rounded-lg border border-outline-variant/10">
+                <span className="text-[10px] text-outline whitespace-nowrap font-bold uppercase tracking-tight">Base:</span>
+                <select 
+                  value={dbSourceFilter}
+                  onChange={(e) => setDbSourceFilter(e.target.value)}
+                  className="bg-transparent border-none text-xs font-bold focus:ring-0 p-0 pr-8 text-on-surface-variant outline-none cursor-pointer appearance-none min-w-[120px]"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23958e9f' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right center',
+                    backgroundSize: '14px'
+                  }}
+                >
+                  <option className="bg-[#2a2a2b] text-white">Todas las Bases</option>
+                  {availableBases.map(base => (
+                    <option key={base} value={base} className="bg-[#2a2a2b] text-white">{base}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2 bg-surface-container-high px-3 py-2 rounded-lg border border-outline-variant/10 flex-1">
-            <span className="text-xs text-outline whitespace-nowrap">Origen:</span>
-            <select 
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-              className="bg-transparent border-none text-xs font-bold focus:ring-0 p-0 pr-6 text-on-surface-variant outline-none w-full"
+          
+          <div className="flex flex-wrap items-center gap-2 justify-end lg:ml-4">
+            <button 
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
+                showAdvancedFilters ? 'bg-primary/10 text-primary border border-primary/20' : 'text-outline hover:text-white'
+              }`}
             >
-              <option>Todos los Orígenes</option>
-              <option>LinkedIn</option>
-              <option>WhatsApp</option>
-              <option>Email</option>
-              <option>Directo</option>
-            </select>
+              <span className="material-symbols-outlined text-[18px]">filter_list</span>
+              <span className="hidden sm:inline">Filtros Avanzados</span>
+            </button>
+            <div className="hidden md:block w-px h-6 bg-outline-variant/20 mx-1"></div>
+            <button className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-outline hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              <span className="hidden sm:inline">Exportar</span>
+            </button>
+            <button 
+              onClick={onOpenImportModal}
+              className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold bg-surface-container-highest text-white rounded-lg hover:bg-surface-container-high transition-colors border border-outline-variant/20 ml-1"
+            >
+              <span className="material-symbols-outlined text-[18px]">upload</span>
+              <span className="hidden sm:inline">Importar</span>
+            </button>
+            <button 
+              onClick={onOpenNewContact}
+              className="flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-bold bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/10 active:scale-95 whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              <span className="hidden sm:inline">Nuevo Contacto</span>
+            </button>
           </div>
         </div>
-        
-        <div className="flex flex-wrap items-center gap-2 justify-end">
-          <button className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-outline hover:text-white transition-colors">
-            <span className="material-symbols-outlined text-[18px]">filter_list</span>
-            <span className="hidden sm:inline">Filtros Avanzados</span>
-          </button>
-          <div className="w-px h-6 bg-outline-variant/20 mx-1"></div>
-          <button className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-outline hover:text-white transition-colors">
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            <span className="hidden sm:inline">Exportar</span>
-          </button>
-          <button 
-            onClick={onOpenNewContact}
-            className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 text-xs font-bold bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 ml-1"
-          >
-            <span className="material-symbols-outlined text-[18px]">add</span>
-            <span className="hidden sm:inline">Nuevo Contacto</span>
-          </button>
-        </div>
+
+        {/* Advanced Filters Panel */}
+        {showAdvancedFilters && (
+          <div className="bg-surface-container-low p-5 rounded-xl border border-outline-variant/10 animate-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-outline uppercase tracking-wider">Actividad / Rubro</label>
+                <select 
+                  value={activityFilter}
+                  onChange={(e) => setActivityFilter(e.target.value)}
+                  className="w-full bg-surface-container-high border border-outline-variant/10 rounded-lg px-3 py-2 text-xs font-bold text-white outline-none focus:border-primary/30"
+                >
+                  <option>Todas las Actividades</option>
+                  {availableActivities.map(activity => (
+                    <option key={activity} value={activity}>{activity}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-outline uppercase tracking-wider">Origen del Lead</label>
+                <select 
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  className="w-full bg-surface-container-high border border-outline-variant/10 rounded-lg px-3 py-2 text-xs font-bold text-white outline-none focus:border-primary/30"
+                >
+                  <option>Todos los Orígenes</option>
+                  <option>LinkedIn</option>
+                  <option>WhatsApp</option>
+                  <option>Email</option>
+                  <option>Directo</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-outline uppercase tracking-wider">País</label>
+                <select 
+                  value={countryFilter}
+                  onChange={(e) => setCountryFilter(e.target.value)}
+                  className="w-full bg-surface-container-high border border-outline-variant/10 rounded-lg px-3 py-2 text-xs font-bold text-white outline-none focus:border-primary/30"
+                >
+                  <option>Todos los Países</option>
+                  {availableCountries.map(country => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col justify-end pb-1">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative flex items-center">
+                    <input 
+                      type="checkbox" 
+                      checked={isValidEmailOnly}
+                      onChange={(e) => setIsValidEmailOnly(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-5 h-5 rounded border-2 transition-all flex items-center justify-center ${
+                      isValidEmailOnly ? 'bg-primary border-primary' : 'border-outline-variant group-hover:border-outline'
+                    }`}>
+                      {isValidEmailOnly && <span className="material-symbols-outlined text-[14px] text-on-primary font-bold">check</span>}
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-on-surface-variant group-hover:text-white transition-colors">Solo Emails Verificados</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-outline-variant/5 flex justify-between items-center">
+              <button 
+                onClick={() => {
+                  setStatusFilter('Todos los Estados');
+                  setSourceFilter('Todos los Orígenes');
+                  setSearchQuery('');
+                  setDbSourceFilter('Todas las Bases');
+                  setActivityFilter('Todas las Actividades');
+                  setIsValidEmailOnly(false);
+                  setCountryFilter('Todos los Países');
+                }}
+                className="text-xs font-bold text-outline hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                Limpiar todos los filtros
+              </button>
+              <p className="text-[10px] text-outline/50 italic">Mostrando {filteredContacts.length} de {contacts.length} contactos</p>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Bulk Actions Floating Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[50] animate-in slide-in-from-bottom-10 duration-300">
+          <div className="bg-surface-container-high border border-primary/20 shadow-2xl shadow-black/50 px-6 py-4 rounded-2xl flex items-center gap-6 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
+                {selectedIds.size}
+              </div>
+              <span className="text-sm font-medium text-white">Contactos seleccionados</span>
+            </div>
+            
+            <div className="w-px h-6 bg-outline-variant/20"></div>
+            
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => onDeleteMany && onDeleteMany(Array.from(selectedIds))}
+                className="flex items-center gap-2 px-4 py-2 bg-error/10 text-error hover:bg-error/20 rounded-xl transition-all font-bold text-sm"
+              >
+                <span className="material-symbols-outlined text-[18px]">delete</span>
+                Eliminar Seleccionados
+              </button>
+              
+              <button 
+                onClick={() => setSelectedIds(new Set())}
+                className="text-xs text-outline hover:text-white transition-colors px-2"
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Contacts Table */}
       <div className="bg-surface-container rounded-2xl overflow-hidden border border-outline-variant/10 shadow-xl">
@@ -158,43 +420,94 @@ export default function Contacts({ onViewChange, onOpenNewContact, onSelectConta
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-surface-container-high/50 border-b border-outline-variant/10">
-                <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-outline font-bold">Contacto</th>
-                <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-outline font-bold">Empresa</th>
-                <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-outline font-bold">Origen</th>
-                <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-outline font-bold">Ejecutivo</th>
-                <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-outline font-bold">Información</th>
-                <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-outline font-bold">Estado</th>
-                <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-outline font-bold">Próxima Acción</th>
-                <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-outline font-bold text-right">Acciones</th>
+                <th className="px-4 py-3 w-10 text-center">
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); toggleSelectAll(); }}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer mx-auto ${
+                      selectedIds.size > 0 && selectedIds.size === filteredContacts.length 
+                      ? 'bg-primary border-primary' 
+                      : 'border-outline-variant hover:border-outline'
+                    }`}
+                  >
+                    {selectedIds.size > 0 && (
+                      <span className="material-symbols-outlined text-[14px] text-on-primary font-bold">
+                        {selectedIds.size === filteredContacts.length ? 'check' : 'remove'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Contacto</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Empresa / Tipo</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Actividad</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Origen</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Base</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Ubicación</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Información</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Estado</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Próxima Acción</th>
+                <th className="px-6 py-3 text-[10px] uppercase tracking-widest text-outline font-bold text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
-              {filteredContacts.map((contact) => (
+              {paginatedContacts.map((contact) => (
                 <tr 
                   key={contact.id}
-                  className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer"
+                  className={`hover:bg-surface-container-highest/30 transition-colors group cursor-pointer ${selectedIds.has(contact.id!) ? 'bg-primary/5' : ''}`}
                   onClick={() => onSelectContact && onSelectContact(contact)}
                 >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-primary font-bold border border-outline-variant/20 shadow-inner">
-                        {contact.firstName.charAt(0)}{contact.lastName.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-white leading-tight">{contact.firstName} {contact.lastName}</p>
-                        <p className="text-xs text-on-surface-variant mt-0.5">{contact.jobTitle || 'Sin cargo'}</p>
-                      </div>
+                  <td className="px-4 py-3 text-center">
+                    <div 
+                      onClick={(e) => toggleSelect(contact.id!, e)}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer mx-auto ${
+                        selectedIds.has(contact.id!) 
+                        ? 'bg-primary border-primary' 
+                        : 'border-outline-variant group-hover:border-outline'
+                      }`}
+                    >
+                      {selectedIds.has(contact.id!) && (
+                        <span className="material-symbols-outlined text-[14px] text-on-primary font-bold">check</span>
+                      )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded bg-surface-container-highest flex items-center justify-center text-outline">
-                        <span className="material-symbols-outlined text-[14px]">domain</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-bold text-white leading-tight truncate">{contact.firstName} {contact.lastName}</p>
+                          {contact.profileLink && (
+                            <a 
+                              href={contact.profileLink} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-primary hover:scale-110 transition-transform"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-xs text-on-surface-variant mt-0.5 truncate">{contact.jobTitle || 'Sin cargo'}</p>
                       </div>
-                      <span className="text-sm text-on-surface-variant font-medium">{contact.company || 'Sin empresa'}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-on-surface-variant font-medium truncate max-w-[120px]">{contact.company || 'Sin empresa'}</span>
+                      </div>
+                      {contact.companyType && (
+                        <span className="w-fit px-1.5 py-0.5 bg-outline-variant/10 text-outline text-[9px] font-bold uppercase rounded border border-outline-variant/20 italic">
+                          {contact.companyType}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs text-on-surface-variant truncate max-w-[100px] block" title={contact.activity}>
+                      {contact.activity || '—'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-[14px] text-primary">
                         {contact.source === 'linkedin' ? 'link' : contact.source === 'whatsapp' ? 'chat' : contact.source === 'email' ? 'mail' : 'language'}
@@ -204,21 +517,33 @@ export default function Contacts({ onViewChange, onOpenNewContact, onSelectConta
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-[10px] font-bold text-outline border border-outline-variant/20">
-                        {contact.assignedTo ? contact.assignedTo.substring(0, 2).toUpperCase() : 'SA'}
-                      </div>
-                      <span className="text-xs text-on-surface-variant">
-                        {contact.assignedTo || 'Sin asignar'}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 min-w-[80px]">
+                      {contact.dbSource ? (
+                        <>
+                          <span className="material-symbols-outlined text-[14px] text-secondary">database</span>
+                          <span className="text-xs text-on-surface-variant truncate max-w-[110px]" title={contact.dbSource}>
+                            {contact.dbSource}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-outline/30">—</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[14px] text-outline">location_on</span>
+                      <span className="truncate max-w-[120px]">
+                        {contact.province}{contact.province && contact.country ? ', ' : ''}{contact.country || (contact.province ? '' : 'Global')}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2 text-xs text-on-surface-variant">
                         <span className="material-symbols-outlined text-[14px] text-outline">mail</span>
-                        <span className="truncate max-w-[150px]" title={contact.email}>{contact.email || 'Sin email'}</span>
+                        <span className="truncate max-w-[140px]" title={contact.email}>{contact.email || 'Sin email'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-on-surface-variant">
                         <span className="material-symbols-outlined text-[14px] text-outline">call</span>
@@ -226,12 +551,12 @@ export default function Contacts({ onViewChange, onOpenNewContact, onSelectConta
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getContactState(contact).color}`}>
                       {getContactState(contact).label}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     {(() => {
                       const nextAction = getNextAction(contact);
                       if (!nextAction) {
@@ -270,36 +595,28 @@ export default function Contacts({ onViewChange, onOpenNewContact, onSelectConta
                       );
                     })()}
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {contact.email && (
-                        <a 
-                          href={`mailto:${contact.email}`} 
-                          onClick={(e) => e.stopPropagation()} 
-                          className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-primary hover:bg-primary/10 transition-colors" 
-                          title="Enviar email"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">mail</span>
-                        </a>
-                      )}
-                      {contact.phone && (
-                        <a 
-                          href={`https://wa.me/${contact.countryCode?.replace('+', '')}${contact.phone?.replace(/\s/g, '')}`} 
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()} 
-                          className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-secondary hover:bg-secondary/10 transition-colors" 
-                          title="Enviar WhatsApp"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">chat</span>
-                        </a>
-                      )}
                       <button 
                         onClick={(e) => { e.stopPropagation(); onSelectContact && onSelectContact(contact); }} 
                         className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-primary hover:bg-primary/10 transition-colors" 
                         title="Ver detalles"
                       >
                         <span className="material-symbols-outlined text-[16px]">visibility</span>
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onEditContact && onEditContact(contact); }} 
+                        className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-secondary hover:bg-secondary/10 transition-colors" 
+                        title="Modificar"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); contact.id && onDeleteContact && onDeleteContact(contact.id); }} 
+                        className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-error hover:bg-error/10 transition-colors" 
+                        title="Eliminar"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
                     </div>
                   </td>
@@ -310,14 +627,48 @@ export default function Contacts({ onViewChange, onOpenNewContact, onSelectConta
         </div>
         
         {/* Pagination */}
-        <div className="px-6 py-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex items-center justify-between">
-          <p className="text-xs text-outline">Mostrando <span className="text-white font-bold">{filteredContacts.length > 0 ? 1 : 0}-{filteredContacts.length}</span> de <span className="text-white font-bold">{filteredContacts.length}</span> contactos</p>
+        <div className="px-4 py-3 bg-surface-container-high/30 border-t border-outline-variant/10 flex items-center justify-between">
+          <p className="text-xs text-outline">
+            Mostrando <span className="text-white font-bold">{filteredContacts.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}-{Math.min(currentPage * itemsPerPage, filteredContacts.length)}</span> de <span className="text-white font-bold">{filteredContacts.length}</span> contactos
+          </p>
           <div className="flex gap-1">
-            <button className="p-2 rounded-lg hover:bg-surface-container-highest transition-colors text-outline">
+            <button 
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              className="p-2 rounded-lg hover:bg-surface-container-highest transition-colors text-outline disabled:opacity-30 disabled:cursor-not-allowed"
+            >
               <span className="material-symbols-outlined">chevron_left</span>
             </button>
-            <button className="w-8 h-8 rounded-lg bg-intelligence text-on-primary-container font-bold text-xs">1</button>
-            <button className="p-2 rounded-lg hover:bg-surface-container-highest transition-colors text-outline">
+            
+            {/* Page number buttons - Show limited set if many pages */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum = currentPage <= 3 ? i + 1 : 
+                           currentPage >= totalPages - 2 ? totalPages - 4 + i :
+                           currentPage - 2 + i;
+              
+              // Validation for small totalPages
+              if (pageNum < 1 || pageNum > totalPages) return null;
+
+              return (
+                <button 
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-8 h-8 rounded-lg font-bold text-xs transition-all ${
+                    currentPage === pageNum 
+                    ? 'bg-primary text-on-primary shadow-lg shadow-primary/20' 
+                    : 'bg-surface-container-highest text-outline hover:text-white'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+
+            <button 
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              className="p-2 rounded-lg hover:bg-surface-container-highest transition-colors text-outline disabled:opacity-30 disabled:cursor-not-allowed"
+            >
               <span className="material-symbols-outlined">chevron_right</span>
             </button>
           </div>

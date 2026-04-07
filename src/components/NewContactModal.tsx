@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ContactData } from '../types';
+import { nocoService } from '../services/nocoService';
 
 interface NewContactModalProps {
   isOpen: boolean;
@@ -13,6 +14,8 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
     firstName: '',
     lastName: '',
     company: '',
+    activity: '',
+    dbSource: '',
     email: '',
     phone: '',
     countryCode: '+54',
@@ -27,8 +30,15 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
     ]
   });
 
+  const [initialNote, setInitialNote] = useState('');
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
   React.useEffect(() => {
     if (isOpen) {
+      setInitialNote(''); // Clear on open
+      setEmailError('');
+      setIsCheckingEmail(false);
       if (initialData) {
         setFormData({ 
           ...initialData, 
@@ -45,6 +55,8 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
           firstName: '',
           lastName: '',
           company: '',
+          activity: '',
+          dbSource: '',
           email: '',
           phone: '',
           countryCode: '+54',
@@ -64,13 +76,61 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    
+    if (!formData.email) {
+      onSaveProcess();
+      return;
+    }
+
+    // Double check before saving
+    setIsCheckingEmail(true);
+    setEmailError('');
+    try {
+      const isDuplicate = await nocoService.isEmailDuplicate(formData.email, initialData?.id);
+      if (isDuplicate) {
+        setEmailError('Este email ya está registrado en la base de datos.');
+        setIsCheckingEmail(false);
+        return;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setIsCheckingEmail(false);
+
+    onSaveProcess();
+  };
+
+  const onSaveProcess = () => {
+    
+    // If there's an initial note, add it to the first stage
+    let finalData = { ...formData };
+    if (initialNote.trim() && !initialData) {
+      const updatedStages = [...(finalData.stages || [])];
+      
+      const newNote = {
+        id: Date.now().toString(),
+        text: initialNote.trim(),
+        date: new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }),
+        tag: 'Importante'
+      };
+
+      if (updatedStages.length > 0) {
+        updatedStages[0] = { ...updatedStages[0], notes: [newNote, ...(updatedStages[0].notes || [])] };
+      } else {
+        updatedStages.push({ id: 1, name: 'Descubrimiento', notes: [newNote] });
+      }
+      finalData.stages = updatedStages;
+    }
+
+    onSave(finalData);
     setFormData({
       firstName: '',
       lastName: '',
       company: '',
+      activity: '',
+      dbSource: '',
       email: '',
       phone: '',
       countryCode: '+54',
@@ -84,12 +144,37 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
         { id: 3, name: 'Negociación', notes: [] },
       ]
     });
+    setInitialNote('');
+    setEmailError('');
     onClose();
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleEmailBlur = async () => {
+    if (!formData.email || (initialData && formData.email === initialData.email)) {
+      setEmailError('');
+      return;
+    }
+    
+    setIsCheckingEmail(true);
+    setEmailError('');
+    try {
+      const isDuplicate = await nocoService.isEmailDuplicate(formData.email, initialData?.id);
+      if (isDuplicate) {
+        setEmailError('Este email ya está registrado en la base de datos.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setIsCheckingEmail(false);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'initialNote') {
+      setInitialNote(value);
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   return (
@@ -166,6 +251,31 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Actividad</label>
+                <input 
+                  type="text" 
+                  name="activity"
+                  value={formData.activity}
+                  onChange={handleChange}
+                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Ej. SaaS / Consultoría"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Base Origen</label>
+                <input 
+                  type="text" 
+                  name="dbSource"
+                  value={formData.dbSource}
+                  onChange={handleChange}
+                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Ej. LinkedIn Q1"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Origen</label>
                 <div className="relative">
                   <select 
@@ -185,17 +295,21 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Ejecutivo Asignado</label>
+                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Tipo de Empresa</label>
                 <div className="relative">
                   <select 
-                    name="assignedTo"
-                    value={formData.assignedTo}
+                    name="companyType"
+                    value={formData.companyType || ''}
                     onChange={handleChange}
                     className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all appearance-none"
                   >
-                    <option value="Roberto M.">Roberto M.</option>
-                    <option value="Elena R.">Elena R.</option>
-                    <option value="Carlos L.">Carlos L.</option>
+                    <option value="">No clasificado</option>
+                    <option value="Corporación">Corporación</option>
+                    <option value="PyME">PyME</option>
+                    <option value="Mayorista">Mayorista</option>
+                    <option value="Distribuidor">Distribuidor</option>
+                    <option value="Startup">Startup</option>
+                    <option value="Freelance">Freelance</option>
                   </select>
                   <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[20px]">
                     expand_more
@@ -204,17 +318,49 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Link de Perfil / Red Social</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="material-symbols-outlined text-outline text-[18px]">open_in_new</span>
+                </div>
+                <input 
+                  type="url" 
+                  name="profileLink"
+                  value={formData.profileLink || ''}
+                  onChange={handleChange}
+                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="https://www.linkedin.com/in/... o Instagram/Web"
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Email</label>
-                <input 
-                  type="email" 
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  placeholder="juan@ejemplo.com"
-                />
+                <div className="relative">
+                  <input 
+                    type="email" 
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    onBlur={handleEmailBlur}
+                    className={`w-full bg-surface-container-highest border rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none transition-all ${
+                      emailError ? 'border-error/50 focus:border-error focus:ring-1 focus:ring-error' : 'border-outline-variant/20 focus:border-primary focus:ring-1 focus:ring-primary'
+                    }`}
+                    placeholder="juan@ejemplo.com"
+                  />
+                  {isCheckingEmail && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+                {emailError && (
+                  <p className="text-[11px] text-error font-medium mt-1 animate-in fade-in slide-in-from-top-1">
+                    {emailError}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Teléfono</label>
@@ -250,6 +396,44 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
                 </div>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Provincia</label>
+                <input 
+                  type="text" 
+                  name="province"
+                  value={formData.province || ''}
+                  onChange={handleChange}
+                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Ej. Buenos Aires"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">País</label>
+                <input 
+                  type="text" 
+                  name="country"
+                  value={formData.country || ''}
+                  onChange={handleChange}
+                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Ej. Argentina"
+                />
+              </div>
+            </div>
+
+            {!initialData && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Observaciones Iniciales</label>
+                <textarea 
+                  name="initialNote"
+                  value={initialNote}
+                  onChange={handleChange}
+                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none min-h-[80px]"
+                  placeholder="Ej. Lo conocí en el evento X..."
+                />
+              </div>
+            )}
           </form>
         </div>
         
@@ -264,9 +448,14 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
           <button 
             type="submit"
             form="new-contact-form"
-            className="px-5 py-2.5 rounded-lg text-sm font-bold bg-primary text-on-primary hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+            disabled={isCheckingEmail || !!emailError}
+            className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-lg ${
+              isCheckingEmail || !!emailError 
+                ? 'bg-outline-variant/20 text-outline cursor-not-allowed' 
+                : 'bg-primary text-on-primary hover:bg-primary/90 shadow-primary/20'
+            }`}
           >
-            Guardar Contacto
+            {isCheckingEmail ? 'Verificando...' : 'Guardar Contacto'}
           </button>
         </div>
       </div>

@@ -1,91 +1,169 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy, useMemo, useEffect } from 'react';
 import Login from './components/Login';
 import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import Contacts from './components/Contacts';
-import ContactDetails from './components/ContactDetails';
-import Servicios from './components/Servicios';
-import Plantillas from './components/Plantillas';
-import NewContactModal from './components/NewContactModal';
-import { ContactData } from './types';
+import { ContactData, User } from './types';
+import { nocoService } from './services/nocoService';
+
+// Lazy load components for code-splitting
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Contacts = lazy(() => import('./components/Contacts'));
+const ContactDetails = lazy(() => import('./components/ContactDetails'));
+const Servicios = lazy(() => import('./components/Servicios'));
+const Plantillas = lazy(() => import('./components/Plantillas'));
+const NewContactModal = lazy(() => import('./components/NewContactModal'));
+const ImportContactModal = lazy(() => import('./components/ImportContactModal'));
+const DeleteConfirmModal = lazy(() => import('./components/DeleteConfirmModal'));
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-full min-h-[400px]">
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+  </div>
+);
 
 type ViewState = 'login' | 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas';
 
-const INITIAL_CONTACTS: ContactData[] = [
-  {
-    id: '1',
-    firstName: 'Mikel',
-    lastName: 'Arteta',
-    company: 'Arsenal Holdings PLC',
-    jobTitle: 'Chief Operating Officer',
-    email: 'mikel@arsenal.com',
-    phone: '20 7619 5000',
-    countryCode: '+44',
-    source: 'linkedin',
-    assignedTo: 'Roberto M.',
-    stages: [
-      { id: 1, name: 'Descubrimiento', notes: [{ id: '1', text: 'Initial contact', date: '2023-10-01' }] },
-      { id: 2, name: 'Propuesta', notes: [{ id: '2', text: 'Sent proposal', date: '2023-10-05' }] },
-      { id: 3, name: 'Negociación', notes: [{ id: '3', text: 'Negotiating terms', date: '2023-10-10' }] }
-    ]
-  },
-  {
-    id: '2',
-    firstName: 'Sarah',
-    lastName: 'Sterling',
-    company: 'Fintech Global Solutions',
-    jobTitle: 'VP Partnership',
-    email: 'sarah@fintech.com',
-    phone: '555 0198',
-    countryCode: '+1',
-    source: 'whatsapp',
-    assignedTo: 'Elena R.',
-    stages: [
-      { id: 1, name: 'Descubrimiento', notes: [{ id: '1', text: 'Initial contact', date: '2023-10-01' }] },
-      { id: 2, name: 'Propuesta', notes: [{ id: '2', text: 'Sent proposal', date: '2023-10-05' }] },
-      { id: 3, name: 'Negociación', notes: [] }
-    ]
-  },
-  {
-    id: '3',
-    firstName: 'Beatriz',
-    lastName: 'Ramos',
-    company: 'Logistics North SL',
-    jobTitle: 'Head of Procurement',
-    email: 'beatriz@logistics.com',
-    phone: '912 345 678',
-    countryCode: '+34',
-    source: 'email',
-    assignedTo: 'Roberto M.',
-    stages: [
-      { id: 1, name: 'Descubrimiento', notes: [{ id: '1', text: 'Initial contact', date: '2023-10-01' }] },
-      { id: 2, name: 'Propuesta', notes: [] },
-      { id: 3, name: 'Negociación', notes: [] }
-    ]
-  }
-];
-
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('login');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isNewContactModalOpen, setIsNewContactModalOpen] = useState(false);
-  const [contacts, setContacts] = useState<ContactData[]>(INITIAL_CONTACTS);
+  const [contacts, setContacts] = useState<ContactData[]>([]);
   const [selectedContact, setSelectedContact] = useState<ContactData | null>(null);
   const [editingContact, setEditingContact] = useState<ContactData | null>(null);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
 
-  const handleSaveContact = (newContact: ContactData) => {
-    if (newContact.id) {
-      setContacts(prev => prev.map(c => c.id === newContact.id ? newContact : c));
-      if (selectedContact?.id === newContact.id) {
-        setSelectedContact(newContact);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [contactsToDelete, setContactsToDelete] = useState<ContactData[]>([]);
+
+  // Check local/session storage on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('crmUser') || sessionStorage.getItem('crmUser');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser) as User;
+        setCurrentUser(user);
+        setCurrentView('dashboard');
+      } catch (e) {
+        console.error('Failed to restore user session', e);
       }
-    } else {
-      setContacts(prev => [{ ...newContact, id: Date.now().toString() }, ...prev]);
+    }
+  }, []);
+
+  // Fetch true contacts on successful login
+  useEffect(() => {
+    if (currentUser) {
+      const loadInitialData = async () => {
+        setIsLoadingContacts(true);
+        try {
+          const dbContacts = await nocoService.getContacts();
+          setContacts(dbContacts);
+        } catch (e) {
+          console.error("Failed loading from DB", e);
+        } finally {
+          setIsLoadingContacts(false);
+        }
+      };
+      loadInitialData();
+    }
+  }, [currentUser]);
+
+  // RBAC Filtering -> Derived state of contacts based on the User's Role
+  // Normal users can now see all contacts, but tasks/notes are filtered inside components
+  const filteredContacts = useMemo(() => {
+    if (!currentUser) return [];
+    return contacts;
+  }, [contacts, currentUser]);
+
+  const handleSaveContact = async (contactData: ContactData) => {
+    try {
+      if (contactData.id) {
+        // Update contact
+        await nocoService.updateContact(contactData.id, contactData);
+        setContacts(prev => prev.map(c => c.id === contactData.id ? contactData : c));
+        if (selectedContact?.id === contactData.id) {
+          setSelectedContact(contactData);
+        }
+      } else {
+        // Create new contact
+        const assignedTo = currentUser?.name || 'admin';
+        const newContact = await nocoService.createContact({ ...contactData, assignedTo });
+        setContacts(prev => [newContact, ...prev]);
+      }
+    } catch (e: any) {
+      console.error("Error saving contact", e.response?.data || e);
+      alert(`Error al guardar en la base de datos: ${e.response?.data?.msg || e.message || 'Error desconocido'}`);
+    }
+  };
+
+  const handleDeleteContact = (id: string) => {
+    const contact = contacts.find(c => c.id === id);
+    if (contact) {
+      setContactsToDelete([contact]);
+      setIsDeleteModalOpen(true);
+    }
+  };
+
+  const handleDeleteManyContacts = (ids: string[]) => {
+    const selectedToDie = contacts.filter(c => ids.includes(c.id || ''));
+    if (selectedToDie.length > 0) {
+      setContactsToDelete(selectedToDie);
+      setIsDeleteModalOpen(true);
+    }
+  };
+
+  const confirmDeleteContact = async () => {
+    if (contactsToDelete.length === 0) return;
+    try {
+      const ids = contactsToDelete.map(c => c.id!).filter(Boolean);
+      
+      if (ids.length === 1) {
+        await nocoService.deleteContact(ids[0]);
+      } else {
+        await nocoService.deleteBulkContacts(ids);
+      }
+
+      setContactsToDelete([]);
+      setContacts(prev => prev.filter(c => !ids.includes(c.id || '')));
+      
+      if (selectedContact && ids.includes(selectedContact.id || '')) {
+        setSelectedContact(null);
+        setCurrentView('contacts');
+      }
+      
+      setIsDeleteModalOpen(false);
+    } catch (e: any) {
+      console.error("Error deleting contact", e);
+      alert("No se pudo eliminar el contacto.");
+    }
+  };
+
+  const handleImportContacts = async (importedContacts: Partial<ContactData>[]) => {
+    try {
+      // Modify assignedTo based on RBAC logic before bulk insert
+      const toInsert = importedContacts.map((c) => ({
+        ...c,
+        assignedTo: currentUser?.role === 'user' ? currentUser.name : (c.assignedTo || '')
+      }));
+
+      await nocoService.importBulkContacts(toInsert);
+      
+      // Reload contacts after import to make sure IDs match DB
+      const refreshed = await nocoService.getContacts();
+      setContacts(refreshed);
+    } catch(e) {
+      console.error("Import failed", e);
+      alert("La importación masiva ha fallado..");
     }
   };
 
   const handleOpenNewContact = () => {
     setEditingContact(null);
     setIsNewContactModalOpen(true);
+  };
+
+  const handleOpenImportModal = () => {
+    setIsImportModalOpen(true);
   };
 
   const handleEditContact = (contact: ContactData) => {
@@ -98,8 +176,21 @@ export default function App() {
     setCurrentView('contact-details');
   };
 
-  const handleLogin = () => {
+  const handleLogin = (user: User, rememberMe: boolean) => {
+    setCurrentUser(user);
+    if (rememberMe) {
+      localStorage.setItem('crmUser', JSON.stringify(user));
+    } else {
+      sessionStorage.setItem('crmUser', JSON.stringify(user));
+    }
     setCurrentView('dashboard');
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('crmUser');
+    sessionStorage.removeItem('crmUser');
+    setCurrentView('login');
   };
 
   const handleNavigate = (view: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas') => {
@@ -112,14 +203,43 @@ export default function App() {
 
   return (
     <>
-      <Layout currentView={currentView} onNavigate={handleNavigate} onOpenNewContact={handleOpenNewContact}>
-        {currentView === 'dashboard' && <Dashboard onOpenNewContact={handleOpenNewContact} contacts={contacts} />}
-        {currentView === 'contacts' && <Contacts onViewChange={setCurrentView} onOpenNewContact={handleOpenNewContact} onSelectContact={handleSelectContact} contacts={contacts} />}
-        {currentView === 'contact-details' && <ContactDetails contact={selectedContact} onEdit={() => selectedContact && handleEditContact(selectedContact)} onUpdateContact={handleSaveContact} />}
-        {currentView === 'servicios' && <Servicios />}
-        {currentView === 'plantillas' && <Plantillas />}
+      <Layout currentView={currentView} onNavigate={handleNavigate} onOpenNewContact={handleOpenNewContact} onLogout={handleLogout} user={currentUser}>
+        <Suspense fallback={<LoadingFallback />}>
+          {isLoadingContacts && currentView === 'contacts' ? (
+            <LoadingFallback />
+          ) : (
+            <>
+              {currentView === 'dashboard' && <Dashboard onOpenNewContact={handleOpenNewContact} contacts={filteredContacts} user={currentUser} />}
+              {currentView === 'contacts' && (
+                <Contacts 
+                  onViewChange={setCurrentView} 
+                  onOpenNewContact={handleOpenNewContact} 
+                  onOpenImportModal={handleOpenImportModal} 
+                  onSelectContact={handleSelectContact} 
+                  contacts={filteredContacts} 
+                  onDeleteContact={handleDeleteContact} 
+                  onDeleteMany={handleDeleteManyContacts}
+                  onEditContact={handleEditContact} 
+                />
+              )}
+              {currentView === 'contact-details' && <ContactDetails contact={selectedContact} onEdit={() => selectedContact && handleEditContact(selectedContact)} onUpdateContact={handleSaveContact} user={currentUser} />}
+              {currentView === 'servicios' && <Servicios />}
+              {currentView === 'plantillas' && <Plantillas />}
+            </>
+          )}
+        </Suspense>
       </Layout>
-      <NewContactModal isOpen={isNewContactModalOpen} onClose={() => setIsNewContactModalOpen(false)} onSave={handleSaveContact} initialData={editingContact} />
+      <Suspense fallback={null}>
+        <NewContactModal isOpen={isNewContactModalOpen} onClose={() => setIsNewContactModalOpen(false)} onSave={handleSaveContact} initialData={editingContact} />
+        <ImportContactModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleImportContacts} />
+        <DeleteConfirmModal 
+        isOpen={isDeleteModalOpen} 
+        onClose={() => {setIsDeleteModalOpen(false); setContactsToDelete([]);}} 
+        onConfirm={confirmDeleteContact}
+        contactName={contactsToDelete.length === 1 ? `${contactsToDelete[0].firstName} ${contactsToDelete[0].lastName}` : undefined}
+        count={contactsToDelete.length > 1 ? contactsToDelete.length : undefined}
+      />
+      </Suspense>
     </>
   );
 }

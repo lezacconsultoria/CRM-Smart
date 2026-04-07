@@ -1,13 +1,38 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { User } from '../types';
+import { nocoService } from '../services/nocoService';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (user: User, rememberMe: boolean) => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  const handleSubmit = (e: React.FormEvent) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
+    setIsSubmitting(true);
+    setError('');
+    
+    try {
+      // Connect to NocoDB
+      const user = await nocoService.loginUser(email, password);
+      
+      if (user) {
+        onLogin(user, rememberMe);
+      } else {
+        setError('Credenciales inválidas. Intente con: admin1@lezac.com, admin2@lezac.com o roberto@lezac.com');
+      }
+    } catch (err) {
+      setError('Error conectando a la base de datos.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -35,6 +60,13 @@ export default function Login({ onLogin }: LoginProps) {
         
         {/* Login Card */}
         <div className="bg-surface-container-low/40 backdrop-blur-xl rounded-xl p-8 md:p-10 border border-outline-variant/15 shadow-2xl shadow-black/40">
+          
+          {error && (
+            <div className="mb-6 p-3 bg-error/10 border border-error/50 rounded-lg text-error text-center text-xs font-bold font-mono">
+              {error}
+            </div>
+          )}
+
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Email Field */}
             <div className="space-y-2">
@@ -49,7 +81,9 @@ export default function Login({ onLogin }: LoginProps) {
                   className="block w-full pl-12 pr-4 py-3.5 bg-surface-container-lowest border-none rounded-lg text-on-surface placeholder:text-outline/40 focus:ring-1 focus:ring-primary/50 transition-all text-sm outline-none" 
                   id="email" 
                   name="email" 
-                  placeholder="nombre@consultoria.com" 
+                  placeholder="admin1 / admin2 / roberto @lezac.com" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required 
                   type="email"
                 />
@@ -74,7 +108,9 @@ export default function Login({ onLogin }: LoginProps) {
                   className="block w-full pl-12 pr-4 py-3.5 bg-surface-container-lowest border-none rounded-lg text-on-surface placeholder:text-outline/40 focus:ring-1 focus:ring-primary/50 transition-all text-sm outline-none" 
                   id="password" 
                   name="password" 
-                  placeholder="••••••••" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Cualquier contraseña funcionará por ahora" 
                   required 
                   type="password"
                 />
@@ -85,9 +121,11 @@ export default function Login({ onLogin }: LoginProps) {
             <div className="flex items-center space-x-3 ml-1">
               <div className="flex items-center h-5">
                 <input 
-                  className="w-4 h-4 rounded border-outline-variant bg-surface-container-lowest text-primary focus:ring-primary/20 focus:ring-offset-0 transition-all" 
+                  className="w-4 h-4 rounded border-outline-variant bg-surface-container-lowest text-primary focus:ring-primary/20 focus:ring-offset-0 transition-all cursor-pointer" 
                   id="remember" 
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                 />
               </div>
               <label className="text-xs text-on-surface-variant font-medium cursor-pointer" htmlFor="remember">
@@ -97,12 +135,22 @@ export default function Login({ onLogin }: LoginProps) {
             
             {/* Submit Button */}
             <button 
-              className="group relative w-full flex justify-center py-4 px-4 bg-gradient-to-br from-primary to-primary-container text-on-primary-container text-sm font-bold rounded-lg overflow-hidden shadow-lg shadow-primary/10 hover:shadow-primary/20 active:scale-[0.98] transition-all duration-200" 
+              className="group relative w-full flex justify-center py-4 px-4 bg-gradient-to-br from-primary to-primary-container text-on-primary-container text-sm font-bold rounded-lg overflow-hidden shadow-lg shadow-primary/10 hover:shadow-primary/20 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed" 
               type="submit"
+              disabled={isSubmitting}
             >
               <span className="relative z-10 flex items-center">
-                Acceder al CRM
-                <span className="material-symbols-outlined ml-2 text-lg transition-transform group-hover:translate-x-1">arrow_forward</span>
+                {isSubmitting ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin mr-2">refresh</span>
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    Acceder al CRM
+                    <span className="material-symbols-outlined ml-2 text-lg transition-transform group-hover:translate-x-1">arrow_forward</span>
+                  </>
+                )}
               </span>
               <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </button>

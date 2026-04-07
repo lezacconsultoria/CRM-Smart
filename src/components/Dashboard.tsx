@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, FunnelChart, Funnel, LabelList } from 'recharts';
-import { ContactData, Task, Note } from '../types';
+import { ContactData, Task, Note, User } from '../types';
 
 const contactsByUser = [
   { name: 'Roberto M.', contactados: 145 },
@@ -11,12 +11,19 @@ const contactsByUser = [
 interface DashboardProps {
   onOpenNewContact?: () => void;
   contacts?: ContactData[];
+  user?: User | null;
 }
 
-export default function Dashboard({ onOpenNewContact, contacts = [] }: DashboardProps) {
+export default function Dashboard({ onOpenNewContact, contacts = [], user }: DashboardProps) {
+  const canViewItem = (createdBy?: string) => {
+    if (!user) return true;
+    if (user.role === 'admin') return true;
+    return !createdBy || createdBy === user.name;
+  };
+
   // Extract pending tasks from all contacts
   const allTasks = contacts.flatMap(c => 
-    (c.tasks || []).map(t => ({ ...t, contactName: `${c.firstName} ${c.lastName}` }))
+    (c.tasks || []).filter(t => canViewItem(t.createdBy)).map(t => ({ ...t, contactName: `${c.firstName} ${c.lastName}` }))
   );
   const pendingTasks = allTasks.filter(t => !t.completed);
 
@@ -24,7 +31,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [] }: Dashboard
   const allReminders = contacts.flatMap(c => 
     (c.stages || []).flatMap(s => 
       s.notes
-        .filter(n => n.reminderDate)
+        .filter(n => n.reminderDate && canViewItem(n.createdBy))
         .map(n => ({ ...n, contactName: `${c.firstName} ${c.lastName}`, stageName: s.name }))
     )
   );
@@ -32,7 +39,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [] }: Dashboard
   // Extract recent activity (all notes)
   const allActivity = contacts.flatMap(c => 
     (c.stages || []).flatMap(s => 
-      s.notes.map(n => ({
+      s.notes.filter(n => canViewItem(n.createdBy)).map(n => ({
         ...n,
         contactName: `${c.firstName} ${c.lastName}`,
         stageName: s.name,
@@ -90,6 +97,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [] }: Dashboard
   contacts.forEach(contact => {
     // Check tasks
     contact.tasks?.forEach(task => {
+      if (!canViewItem(task.createdBy)) return;
       if (!task.completed && task.dueDateTimestamp) {
         if (task.dueDateTimestamp < today.getTime()) {
           vencidas++;
@@ -102,6 +110,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [] }: Dashboard
     // Check reminders
     contact.stages?.forEach(stage => {
       stage.notes.forEach(note => {
+        if (!canViewItem(note.createdBy)) return;
         if (note.reminderTimestamp) {
           if (note.reminderTimestamp < today.getTime()) {
             vencidas++;
@@ -122,7 +131,6 @@ export default function Dashboard({ onOpenNewContact, contacts = [] }: Dashboard
           <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Total Contactos</p>
           <div className="flex items-baseline gap-2">
             <h3 className="font-headline text-3xl font-extrabold">{totalContactos}</h3>
-            <span className="text-[10px] text-secondary-container">+12%</span>
           </div>
         </div>
         
@@ -130,18 +138,18 @@ export default function Dashboard({ onOpenNewContact, contacts = [] }: Dashboard
           <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Op. Activas</p>
           <div className="flex items-baseline gap-2">
             <h3 className="font-headline text-3xl font-extrabold">{activasHoy}</h3>
-            <span className="text-[10px] text-outline">vence hoy</span>
+            {activasHoy > 0 && <span className="text-[10px] text-outline">vence hoy</span>}
           </div>
         </div>
         
         <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-error/10 bg-error/5 group">
           <p className="text-[11px] font-bold text-error uppercase tracking-wider mb-4 flex items-center gap-2">
             Op. Vencidas
-            <span className="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
+            {vencidas > 0 && <span className="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>}
           </p>
           <div className="flex items-baseline gap-2">
             <h3 className="font-headline text-3xl font-extrabold text-error">{vencidas}</h3>
-            <span className="text-xs text-error/60 material-symbols-outlined">priority_high</span>
+            {vencidas > 0 && <span className="text-xs text-error/60 material-symbols-outlined">priority_high</span>}
           </div>
         </div>
         
@@ -149,7 +157,6 @@ export default function Dashboard({ onOpenNewContact, contacts = [] }: Dashboard
           <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Clientes Ganados</p>
           <div className="flex items-baseline gap-2">
             <h3 className="font-headline text-3xl font-extrabold">{clientesGanados}</h3>
-            <span className="text-[10px] text-secondary-container">↑ 4</span>
           </div>
         </div>
         
@@ -157,7 +164,9 @@ export default function Dashboard({ onOpenNewContact, contacts = [] }: Dashboard
           <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Propuestas</p>
           <div className="flex items-baseline gap-2">
             <h3 className="font-headline text-3xl font-extrabold">{propuestas}</h3>
-            <span className="text-[10px] text-primary">80% conv.</span>
+            {propuestas > 0 && totalContactos > 0 && (
+              <span className="text-[10px] text-primary">{Math.round((propuestas / totalContactos) * 100)}% del total</span>
+            )}
           </div>
         </div>
         
