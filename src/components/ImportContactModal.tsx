@@ -51,6 +51,7 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
     if (h.includes('tipo')) return 'companyType';
     if (h.includes('link') || h.includes('perfil')) return 'profileLink';
     if (h.includes('origen')) return 'source';
+    if (h === 'emial' || h === 'asignado') return 'assignedTo';
     return null;
   };
 
@@ -69,6 +70,8 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
           { id: 1, name: 'Descubrimiento', notes: [note] },
           { id: 2, name: 'Propuesta', notes: [] },
           { id: 3, name: 'Negociación', notes: [] },
+          { id: 4, name: 'Cierre', notes: [] },
+          { id: 5, name: 'Post-Venta', notes: [] },
         ];
       }
       return contact;

@@ -23,11 +23,15 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
     { id: 1, name: 'Descubrimiento', notes: [] },
     { id: 2, name: 'Propuesta', notes: [] },
     { id: 3, name: 'Negociación', notes: [] },
+    { id: 4, name: 'Cierre', notes: [] },
+    { id: 5, name: 'Post-Venta', notes: [] },
   ];
 
-  const [stages, setStages] = useState<StageData[]>(
-    (contact?.stages && contact.stages.length > 0) ? contact.stages : defaultStages
-  );
+  const [stages, setStages] = useState<StageData[]>(() => {
+    let initial = (contact?.stages && contact.stages.length > 0) ? contact.stages : defaultStages;
+    if (initial.length < 5) initial = [...initial, ...defaultStages.slice(initial.length)];
+    return initial;
+  });
   const [noteInput, setNoteInput] = useState('');
   const [selectedReminder, setSelectedReminder] = useState<number | null>(null);
   const [selectedReminderDate, setSelectedReminderDate] = useState<string>('');
@@ -48,7 +52,9 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
 
   useEffect(() => {
     if (contact) {
-      setStages((contact.stages && contact.stages.length > 0) ? contact.stages : defaultStages);
+      let initial = (contact.stages && contact.stages.length > 0) ? contact.stages : defaultStages;
+      if (initial.length < 5) initial = [...initial, ...defaultStages.slice(initial.length)];
+      setStages(initial);
       setTasks(contact.tasks || []);
     }
   }, [contact]);
@@ -156,7 +162,7 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
   };
 
   const handleNextStage = () => {
-    if (currentStage < 3) {
+    if (currentStage < 5) {
       setCurrentStage(prev => prev + 1);
     }
   };
@@ -292,18 +298,54 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
                 <span className="material-symbols-outlined text-primary text-xl">route</span>
                 Seguimiento por Etapas
               </h3>
-              {currentStage < 3 && (
-                <button 
-                  onClick={handleNextStage}
-                  className="w-full sm:w-auto px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold transition-colors border border-primary/20"
-                >
-                  Cerrar Etapa {currentStage} y Avanzar
-                </button>
-              )}
-              {currentStage === 3 && (
-                <span className="w-full sm:w-auto text-center px-4 py-2 bg-secondary/10 text-secondary rounded-lg text-xs font-bold border border-secondary/20">
-                  Etapa Final Activa
+              {contact.status === 'won' && (
+                <span className="w-full sm:w-auto text-center px-4 py-2 bg-green-500/10 text-green-500 rounded-lg text-xs font-bold border border-green-500/20 flex items-center gap-2 justify-center">
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  Contacto Ganado
                 </span>
+              )}
+              {contact.status === 'lost' && (
+                <span className="w-full sm:w-auto text-center px-4 py-2 bg-error/10 text-error rounded-lg text-xs font-bold border border-error/20 flex items-center gap-2 justify-center">
+                  <span className="material-symbols-outlined text-[16px]">cancel</span>
+                  Contacto Perdido
+                </span>
+              )}
+              {(!contact.status || contact.status === 'active') && (
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                  {currentStage < 5 ? (
+                    <button 
+                      onClick={handleNextStage}
+                      className="w-full sm:w-auto px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold transition-colors border border-primary/20"
+                    >
+                      Cerrar Etapa {currentStage} y Avanzar
+                    </button>
+                  ) : (
+                    <span className="w-full sm:w-auto text-center px-4 py-2 bg-secondary/10 text-secondary rounded-lg text-xs font-bold border border-secondary/20">
+                      Etapa Final Activa
+                    </span>
+                  )}
+                  
+                  <button 
+                    onClick={() => {
+                        if (contact) onUpdateContact({ ...contact, status: 'won' });
+                    }}
+                    className="w-full sm:w-auto px-3 py-2 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-lg text-xs font-bold transition-colors border border-green-500/20 flex items-center gap-1 justify-center"
+                    title="Marcar como Cerrado/Ganado"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">check</span>
+                    Ganado
+                  </button>
+                  <button 
+                    onClick={() => {
+                        if (contact) onUpdateContact({ ...contact, status: 'lost' });
+                    }}
+                    className="w-full sm:w-auto px-3 py-2 bg-error/10 text-error hover:bg-error/20 rounded-lg text-xs font-bold transition-colors border border-error/20 flex items-center gap-1 justify-center"
+                    title="Marcar como Perdido"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">close</span>
+                    Perdido
+                  </button>
+                </div>
               )}
             </div>
 

@@ -10,16 +10,17 @@ interface ContactsProps {
   onDeleteContact?: (id: string) => void;
   onDeleteMany?: (ids: string[]) => void;
   contacts?: ContactData[];
+  user?: import('../types').User | null;
 }
 
-export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportModal, onSelectContact, onEditContact, onDeleteContact, onDeleteMany, contacts = [] }: ContactsProps) {
+export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportModal, onSelectContact, onEditContact, onDeleteContact, onDeleteMany, contacts = [], user }: ContactsProps) {
   const [statusFilter, setStatusFilter] = React.useState('Todos los Estados');
   const [sourceFilter, setSourceFilter] = React.useState('Todos los Orígenes');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [dbSourceFilter, setDbSourceFilter] = React.useState('Todas las Bases');
   const [activityFilter, setActivityFilter] = React.useState('Todas las Actividades');
   const [isValidEmailOnly, setIsValidEmailOnly] = React.useState(false);
-  const [countryFilter, setCountryFilter] = React.useState('Todos los Países');
+  const [assignedUserFilter, setAssignedUserFilter] = React.useState('Todos los Usuarios');
   const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -93,12 +94,12 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
     return Array.from(activities).sort();
   }, [contacts]);
 
-  const availableCountries = React.useMemo(() => {
-    const countries = new Set<string>();
+  const availableAssignedUsers = React.useMemo(() => {
+    const users = new Set<string>();
     contacts.forEach(c => {
-      if (c.country) countries.add(c.country);
+      if (c.assignedTo) users.add(c.assignedTo);
     });
-    return Array.from(countries).sort();
+    return Array.from(users).sort();
   }, [contacts]);
 
   const filteredContacts = contacts.filter(contact => {
@@ -130,10 +131,10 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
     // 6. Valid Email Filter
     const matchEmailValid = !isValidEmailOnly || contact.isEmailValid;
 
-    // 7. Country Filter
-    const matchCountry = countryFilter === 'Todos los Países' || contact.country === countryFilter;
+    // 7. Assigned User Filter
+    const matchUser = assignedUserFilter === 'Todos los Usuarios' || contact.assignedTo === assignedUserFilter;
 
-    return matchStatus && matchSource && matchSearch && matchBase && matchActivity && matchEmailValid && matchCountry;
+    return matchStatus && matchSource && matchSearch && matchBase && matchActivity && matchEmailValid && matchUser;
   });
 
   const toggleSelectAll = () => {
@@ -147,7 +148,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
   // Reset to first page when any individual filter changes
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, sourceFilter, searchQuery, dbSourceFilter, activityFilter, isValidEmailOnly, countryFilter]);
+  }, [statusFilter, sourceFilter, searchQuery, dbSourceFilter, activityFilter, isValidEmailOnly, assignedUserFilter]);
 
   const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
   const paginatedContacts = filteredContacts.slice(
@@ -325,19 +326,22 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-outline uppercase tracking-wider">País</label>
-                <select 
-                  value={countryFilter}
-                  onChange={(e) => setCountryFilter(e.target.value)}
-                  className="w-full bg-surface-container-high border border-outline-variant/10 rounded-lg px-3 py-2 text-xs font-bold text-white outline-none focus:border-primary/30"
-                >
-                  <option>Todos los Países</option>
-                  {availableCountries.map(country => (
-                    <option key={country} value={country}>{country}</option>
-                  ))}
-                </select>
-              </div>
+              {user?.role === 'admin' && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-outline uppercase tracking-wider">Usuario Asignado</label>
+                  <select 
+                    value={assignedUserFilter}
+                    onChange={(e) => setAssignedUserFilter(e.target.value)}
+                    className="w-full bg-surface-container-high border border-outline-variant/10 rounded-lg px-3 py-2 text-xs font-bold text-white outline-none focus:border-primary/30"
+                  >
+                    <option>Todos los Usuarios</option>
+                    <option value="">Sin Asignar</option>
+                    {availableAssignedUsers.map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="flex flex-col justify-end pb-1">
                 <label className="flex items-center gap-3 cursor-pointer group">
@@ -368,7 +372,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                   setDbSourceFilter('Todas las Bases');
                   setActivityFilter('Todas las Actividades');
                   setIsValidEmailOnly(false);
-                  setCountryFilter('Todos los Países');
+                  setAssignedUserFilter('Todos los Usuarios');
                 }}
                 className="text-xs font-bold text-outline hover:text-primary transition-colors flex items-center gap-1"
               >
@@ -395,13 +399,15 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
             <div className="w-px h-6 bg-outline-variant/20"></div>
             
             <div className="flex items-center gap-3">
-              <button 
-                onClick={() => onDeleteMany && onDeleteMany(Array.from(selectedIds))}
-                className="flex items-center gap-2 px-4 py-2 bg-error/10 text-error hover:bg-error/20 rounded-xl transition-all font-bold text-sm"
-              >
-                <span className="material-symbols-outlined text-[18px]">delete</span>
-                Eliminar Seleccionados
-              </button>
+              {(!user || user.role === 'admin') && (
+                <button 
+                  onClick={() => onDeleteMany && onDeleteMany(Array.from(selectedIds))}
+                  className="flex items-center gap-2 px-4 py-2 bg-error/10 text-error hover:bg-error/20 rounded-xl transition-all font-bold text-sm"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                  Eliminar Seleccionados
+                </button>
+              )}
               
               <button 
                 onClick={() => setSelectedIds(new Set())}
@@ -438,7 +444,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                 </th>
                 <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Contacto</th>
                 <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Empresa / Tipo</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Actividad</th>
+                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Vendedor</th>
                 <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Origen</th>
                 <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Base</th>
                 <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Ubicación</th>
@@ -503,9 +509,12 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-xs text-on-surface-variant truncate max-w-[100px] block" title={contact.activity}>
-                      {contact.activity || '—'}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-[100px]">
+                      <span className="material-symbols-outlined text-[14px] text-primary-fixed-dim">person</span>
+                      <span className="text-xs text-on-surface-variant truncate max-w-[120px]" title={contact.assignedTo || 'Sin asignar'}>
+                        {contact.assignedTo || '—'}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
@@ -611,13 +620,15 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                       >
                         <span className="material-symbols-outlined text-[16px]">edit</span>
                       </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); contact.id && onDeleteContact && onDeleteContact(contact.id); }} 
-                        className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-error hover:bg-error/10 transition-colors" 
-                        title="Eliminar"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
-                      </button>
+                      {(!user || user.role === 'admin') && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); contact.id && onDeleteContact && onDeleteContact(contact.id); }} 
+                          className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-error hover:bg-error/10 transition-colors" 
+                          title="Eliminar"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -30,6 +30,22 @@ export const nocoService = {
     }
   },
 
+  // Internal cache to minimize fetching users
+  _cachedUsers: null as User[] | null,
+
+  async _resolveUser(assigneeStr: string): Promise<User | null> {
+    if (!assigneeStr) return null;
+    if (!this._cachedUsers) {
+       this._cachedUsers = await this.getUsers();
+    }
+    const target = assigneeStr.trim().toLowerCase();
+    return this._cachedUsers.find(u => 
+      u.id === target || 
+      u.email.toLowerCase() === target || 
+      (u.name && u.name.toLowerCase() === target)
+    ) || null;
+  },
+
   // 2. User Authentication
   async loginUser(email: string, passwordString: string): Promise<User | null> {
     await this.masterLogin();
@@ -47,7 +63,7 @@ export const nocoService = {
       if (users && users.length > 0) {
         const u = users[0];
         return {
-          id: u.Id || u.id || email,
+          id: u.Id ? String(u.Id) : email,
           name: u.Nombre,
           email: u.Email,
           role: u.Rol as 'admin' | 'user'
@@ -60,6 +76,26 @@ export const nocoService = {
     }
   },
 
+  async getUsers(): Promise<User[]> {
+     await this.masterLogin();
+     try {
+       const res = await axios.get(`${NOCODB_URL}/api/v1/db/data/noco/${BASE_ID}/m7itnn4o516xej9`, {
+         headers: getHeaders(),
+         params: { limit: 100 }
+       });
+       return res.data.list.map((u: any) => ({
+          id: u.Id ? String(u.Id) : u.Email,
+          name: u.Nombre,
+          email: u.Email,
+          role: u.Rol as 'admin' | 'user'
+       }));
+     } catch (e) {
+       console.error('Error fetching users', e);
+       return [];
+     }
+  },
+
+
   // 3. Contacts (Contactos)
   async getContacts(): Promise<ContactData[]> {
     await this.masterLogin();
@@ -70,28 +106,37 @@ export const nocoService = {
       });
       
       // Parse NocoDB format to App format
-      return res.data.list.map((c: any) => ({
-        id: String(c.Id),
-        importDate: c['Fecha importado'],
-        firstName: c['Nombre'] || '',
-        lastName: c['Apellido'] || '',
-        company: c['Empresa'] || '',
-        companyType: c['Tipo de empresa'],
-        jobTitle: c['Cargo'] || '',
-        profileLink: c['Link de perfil'],
-        email: c['Correo Electronico'] || '',
-        phone: c['Telefono'] || '',
-        province: c['Provincia'],
-        country: c['Pais'],
-        source: c['Origen DB'] || 'unknown',
-        dbSource: c['Origen DB'],
-        assignedTo: c['Asignado'],
-        activity: c['Actividad'] || '',
-        externalId: c['ids_origen'] || '',
-        isEmailValid: !!c['Email válido'],
-        tasks: c['TasksJSON'] ? JSON.parse(c['TasksJSON']) : [],
-        stages: c['StagesJSON'] ? JSON.parse(c['StagesJSON']) : []
-      }));
+      return res.data.list.map((c: any) => {
+        let assignedTo = c['Asignado'] || '';
+        if (c['Usuarios_id'] && Array.isArray(c['Usuarios_id']) && c['Usuarios_id'].length > 0) {
+           assignedTo = c['Usuarios_id'][0].Nombre || c['Usuarios_id'][0].Email || assignedTo;
+        } else if (c['Usuarios_id'] && c['Usuarios_id'].Nombre) {
+           assignedTo = c['Usuarios_id'].Nombre || c['Usuarios_id'].Email || assignedTo;
+        }
+
+        return {
+          id: String(c.Id),
+          importDate: c['Fecha importado'],
+          firstName: c['Nombre'] || '',
+          lastName: c['Apellido'] || '',
+          company: c['Empresa'] || '',
+          companyType: c['Tipo de empresa'],
+          jobTitle: c['Cargo'] || '',
+          profileLink: c['Link de perfil'],
+          email: c['Correo Electronico'] || '',
+          phone: c['Telefono'] || '',
+          province: c['Provincia'],
+          country: c['Pais'],
+          source: c['Origen DB'] || 'unknown',
+          dbSource: c['Origen DB'],
+          assignedTo: assignedTo,
+          activity: c['Actividad'] || '',
+          externalId: c['ids_origen'] || '',
+          isEmailValid: !!c['Email válido'],
+          tasks: c['TasksJSON'] ? JSON.parse(c['TasksJSON']) : [],
+          stages: c['StagesJSON'] ? JSON.parse(c['StagesJSON']) : []
+        };
+      });
     } catch (e) {
       console.error('Error fetching contacts', e);
       return [];
@@ -172,6 +217,8 @@ export const nocoService = {
       { id: 1, name: 'Descubrimiento', notes: [] },
       { id: 2, name: 'Propuesta', notes: [] },
       { id: 3, name: 'Negociación', notes: [] },
+      { id: 4, name: 'Cierre', notes: [] },
+      { id: 5, name: 'Post-Venta', notes: [] },
     ];
 
     const payload: any = {
@@ -202,9 +249,23 @@ export const nocoService = {
       headers: getHeaders()
     });
 
+    const contactId = String(res.data.Id);
+
+    // Relate user if assignedTo mapped to a User
+    if (contact.assignedTo) {
+      const u = await this._resolveUser(contact.assignedTo);
+      if (u) {
+        try {
+           await axios.post(`${NOCODB_URL}/api/v1/db/data/noco/${BASE_ID}/m7t44xu1kj6xal8/${contactId}/mo/Usuarios_id/${u.id}`, {}, {
+             headers: getHeaders()
+           });
+        } catch (e) { console.error('Error linking user', e); }
+      }
+    }
+
     return {
       ...contact,
-      id: String(res.data.Id),
+      id: contactId,
       tasks: contact.tasks || [],
       stages: contact.stages && contact.stages.length > 0 ? contact.stages : defaultStages
     } as ContactData;
@@ -217,6 +278,8 @@ export const nocoService = {
       { id: 1, name: 'Descubrimiento', notes: [] },
       { id: 2, name: 'Propuesta', notes: [] },
       { id: 3, name: 'Negociación', notes: [] },
+      { id: 4, name: 'Cierre', notes: [] },
+      { id: 5, name: 'Post-Venta', notes: [] },
     ];
 
     const payload = contacts.map(c => ({
@@ -241,9 +304,33 @@ export const nocoService = {
     }));
 
     // Perform bulk insert
-    await axios.post(`${NOCODB_URL}/api/v1/db/data/bulk/noco/${BASE_ID}/m7t44xu1kj6xal8`, payload, {
+    const cRes = await axios.post(`${NOCODB_URL}/api/v1/db/data/bulk/noco/${BASE_ID}/m7t44xu1kj6xal8`, payload, {
       headers: getHeaders()
     });
+
+    // Bulk assign relationships 
+    if (cRes.data && Array.isArray(cRes.data)) {
+      const linkPromises = [];
+      for (let i = 0; i < contacts.length; i++) {
+        const contactId = cRes.data[i]?.Id;
+        const assignedTo = contacts[i]?.assignedTo;
+        if (contactId && assignedTo) {
+           const u = await this._resolveUser(assignedTo);
+           if (u) {
+             linkPromises.push(
+               axios.post(`${NOCODB_URL}/api/v1/db/data/noco/${BASE_ID}/m7t44xu1kj6xal8/${contactId}/mo/Usuarios_id/${u.id}`, {}, {
+                 headers: getHeaders()
+               }).catch(e => console.error(`Bulk link error for CID ${contactId}`, e.message))
+             );
+           }
+        }
+      }
+      
+      // Execute in chunks
+      for (let i = 0; i < linkPromises.length; i+=10) {
+         await Promise.all(linkPromises.slice(i, i+10));
+      }
+    }
   },
 
   async updateContact(id: string, contact: Partial<ContactData>): Promise<void> {
@@ -290,6 +377,17 @@ export const nocoService = {
     await axios.patch(`${NOCODB_URL}/api/v1/db/data/noco/${BASE_ID}/m7t44xu1kj6xal8/${id}`, payload, {
       headers: getHeaders()
     });
+
+    if (contact.assignedTo) {
+      const u = await this._resolveUser(contact.assignedTo);
+      if (u) {
+        try {
+           await axios.post(`${NOCODB_URL}/api/v1/db/data/noco/${BASE_ID}/m7t44xu1kj6xal8/${id}/mo/Usuarios_id/${u.id}`, {}, {
+             headers: getHeaders()
+           });
+        } catch (e) { console.error('Error linking user on update', e); }
+      }
+    }
   },
 
   async deleteContact(id: string): Promise<void> {

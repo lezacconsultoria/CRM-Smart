@@ -61,14 +61,18 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
     return activeStage;
   };
 
-  const totalContactados = contacts.length;
-  const totalReunion = contacts.filter(c => getContactStage(c) >= 2).length;
-  const totalCerrado = contacts.filter(c => getContactStage(c) >= 3).length;
+  const etapa1 = contacts.filter(c => getContactStage(c) >= 1 || c.status === 'won').length;
+  const etapa2 = contacts.filter(c => getContactStage(c) >= 2 || c.status === 'won').length;
+  const etapa3 = contacts.filter(c => getContactStage(c) >= 3 || c.status === 'won').length;
+  const etapa4 = contacts.filter(c => getContactStage(c) >= 4 || c.status === 'won').length;
+  const etapaGanados = contacts.filter(c => c.status === 'won' || getContactStage(c) >= 5).length;
 
   const funnelData = [
-    { name: 'Contactados', value: totalContactados, fill: '#d2bbff' },
-    { name: 'Reunión', value: totalReunion, fill: '#a376ff' },
-    { name: 'Cerrado/Perdido', value: totalCerrado, fill: '#703ecc' },
+    { name: 'Descubrimiento', value: etapa1, fill: '#d2bbff' },
+    { name: 'Propuesta', value: etapa2, fill: '#b592ff' },
+    { name: 'Negociación', value: etapa3, fill: '#966dff' },
+    { name: 'Cierre', value: etapa4, fill: '#703ecc' },
+    { name: 'Ganados', value: etapaGanados, fill: '#4a2599' },
   ];
 
   const userCounts = contacts.reduce((acc, contact) => {
@@ -82,8 +86,8 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
     contactados: count
   })).sort((a, b) => b.contactados - a.contactados);
 
-  const clientesGanados = contacts.filter(c => getContactStage(c) === 3).length;
-  const propuestas = contacts.filter(c => getContactStage(c) === 2).length;
+  const clientesGanados = contacts.filter(c => c.status === 'won' || getContactStage(c) >= 5).length;
+  const propuestas = contacts.filter(c => getContactStage(c) >= 2 && c.status !== 'lost' && c.status !== 'won').length;
   const tasaAvance = totalContactos > 0 ? Math.round(((clientesGanados + propuestas) / totalContactos) * 100) : 0;
 
   let activasHoy = 0;
@@ -192,7 +196,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
             </div>
             <div className="text-left sm:text-right">
               <p className="text-[10px] text-outline uppercase font-bold tracking-widest">Total Contactados</p>
-              <p className="text-2xl font-headline font-bold text-primary">{totalContactados}</p>
+              <p className="text-2xl font-headline font-bold text-primary">{totalContactos}</p>
             </div>
           </div>
           <div className="h-64 w-full">
@@ -216,25 +220,32 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
         <div className="col-span-12 lg:col-span-6 bg-surface-container p-5 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
           <div className="mb-6">
             <h4 className="font-headline text-xl font-bold">Funnel de Conversión</h4>
-            <p className="text-xs text-outline mt-1 font-body">Contactados - Reunión - Cerrado/Perdido</p>
+            <p className="text-xs text-outline mt-1 font-body">Análisis por Etapas de Venta</p>
           </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <FunnelChart>
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#201f20', borderColor: '#4a4453', borderRadius: '8px', color: '#e5e2e3' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Funnel
-                  dataKey="value"
-                  data={funnelData}
-                  isAnimationActive
-                >
-                  <LabelList position="center" fill="#131314" stroke="none" dataKey="name" fontSize={12} fontWeight="bold" />
-                  <LabelList position="right" fill="#e5e2e3" stroke="none" dataKey="value" fontSize={14} fontWeight="bold" />
-                </Funnel>
-              </FunnelChart>
-            </ResponsiveContainer>
+          <div className="h-64 w-full flex flex-col justify-center gap-3">
+            {funnelData.map((step, idx) => {
+              const maxVal = Math.max(...funnelData.map(d => d.value), 1);
+              const percentage = Math.max((step.value / maxVal) * 100, 5);
+
+              return (
+                <div key={step.name} className="w-full flex justify-center group relative">
+                  <div 
+                    className="h-10 rounded-xl transition-all duration-1000 ease-out relative overflow-hidden flex items-center justify-between px-6 border border-white/10"
+                    style={{ 
+                      width: `${percentage}%`, 
+                      minWidth: '220px',
+                      backgroundColor: step.fill,
+                      opacity: step.value === 0 ? 0.3 : 1,
+                      boxShadow: `0 4px 12px ${step.fill}30`
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
+                    <span className="text-xs font-bold text-white drop-shadow-md z-10 truncate mr-4">{step.name}</span>
+                    <span className="text-[15px] font-black text-white drop-shadow-md z-10">{step.value}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

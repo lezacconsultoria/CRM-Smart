@@ -69,10 +69,14 @@ export default function App() {
   }, [currentUser]);
 
   // RBAC Filtering -> Derived state of contacts based on the User's Role
-  // Normal users can now see all contacts, but tasks/notes are filtered inside components
+  // Normal users ONLY see their assigned contacts (by name or email)
   const filteredContacts = useMemo(() => {
     if (!currentUser) return [];
-    return contacts;
+    if (currentUser.role === 'admin') return contacts;
+    return contacts.filter(c => 
+      c.assignedTo === currentUser.email || 
+      c.assignedTo === currentUser.name
+    );
   }, [contacts, currentUser]);
 
   const handleSaveContact = async (contactData: ContactData) => {
@@ -220,6 +224,7 @@ export default function App() {
                   onDeleteContact={handleDeleteContact} 
                   onDeleteMany={handleDeleteManyContacts}
                   onEditContact={handleEditContact} 
+                  user={currentUser}
                 />
               )}
               {currentView === 'contact-details' && <ContactDetails contact={selectedContact} onEdit={() => selectedContact && handleEditContact(selectedContact)} onUpdateContact={handleSaveContact} user={currentUser} />}
@@ -230,7 +235,7 @@ export default function App() {
         </Suspense>
       </Layout>
       <Suspense fallback={null}>
-        <NewContactModal isOpen={isNewContactModalOpen} onClose={() => setIsNewContactModalOpen(false)} onSave={handleSaveContact} initialData={editingContact} />
+        <NewContactModal isOpen={isNewContactModalOpen} onClose={() => setIsNewContactModalOpen(false)} onSave={handleSaveContact} initialData={editingContact} user={currentUser} />
         <ImportContactModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleImportContacts} />
         <DeleteConfirmModal 
         isOpen={isDeleteModalOpen} 

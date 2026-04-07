@@ -53,6 +53,7 @@ export interface ContactData {
   source: 'linkedin' | 'whatsapp' | 'email' | 'db' | '';
   dbSource?: string;
   assignedTo?: string;
+  status?: 'won' | 'lost' | 'active';
   tasks?: Task[];
   stages?: StageData[];
 }

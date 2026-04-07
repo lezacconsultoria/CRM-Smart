@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ContactData } from '../types';
+import { ContactData, User } from '../types';
 import { nocoService } from '../services/nocoService';
 
 interface NewContactModalProps {
@@ -7,9 +7,10 @@ interface NewContactModalProps {
   onClose: () => void;
   onSave: (contact: ContactData) => void;
   initialData?: ContactData | null;
+  user?: User | null;
 }
 
-export default function NewContactModal({ isOpen, onClose, onSave, initialData }: NewContactModalProps) {
+export default function NewContactModal({ isOpen, onClose, onSave, initialData, user }: NewContactModalProps) {
   const [formData, setFormData] = useState<ContactData>({
     firstName: '',
     lastName: '',
@@ -21,12 +22,14 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
     countryCode: '+54',
     jobTitle: '',
     source: '',
-    assignedTo: 'Roberto M.',
+    assignedTo: user?.name || user?.email || '',
     tasks: [],
     stages: [
       { id: 1, name: 'Descubrimiento', notes: [] },
       { id: 2, name: 'Propuesta', notes: [] },
       { id: 3, name: 'Negociación', notes: [] },
+      { id: 4, name: 'Cierre', notes: [] },
+      { id: 5, name: 'Post-Venta', notes: [] },
     ]
   });
 
@@ -48,6 +51,8 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
             { id: 1, name: 'Descubrimiento', notes: [] },
             { id: 2, name: 'Propuesta', notes: [] },
             { id: 3, name: 'Negociación', notes: [] },
+            { id: 4, name: 'Cierre', notes: [] },
+            { id: 5, name: 'Post-Venta', notes: [] },
           ]
         });
       } else {
@@ -62,17 +67,19 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
           countryCode: '+54',
           jobTitle: '',
           source: '',
-          assignedTo: 'Roberto M.',
+          assignedTo: user?.name || user?.email || '',
           tasks: [],
           stages: [
             { id: 1, name: 'Descubrimiento', notes: [] },
             { id: 2, name: 'Propuesta', notes: [] },
             { id: 3, name: 'Negociación', notes: [] },
+            { id: 4, name: 'Cierre', notes: [] },
+            { id: 5, name: 'Post-Venta', notes: [] },
           ]
         });
       }
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, user]);
 
   if (!isOpen) return null;
 
@@ -136,12 +143,14 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
       countryCode: '+54',
       jobTitle: '',
       source: '',
-      assignedTo: 'Roberto M.',
+      assignedTo: user?.name || user?.email || '',
       tasks: [],
       stages: [
         { id: 1, name: 'Descubrimiento', notes: [] },
         { id: 2, name: 'Propuesta', notes: [] },
         { id: 3, name: 'Negociación', notes: [] },
+        { id: 4, name: 'Cierre', notes: [] },
+        { id: 5, name: 'Post-Venta', notes: [] },
       ]
     });
     setInitialNote('');
@@ -249,30 +258,6 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData }
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Actividad</label>
-                <input 
-                  type="text" 
-                  name="activity"
-                  value={formData.activity}
-                  onChange={handleChange}
-                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  placeholder="Ej. SaaS / Consultoría"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Base Origen</label>
-                <input 
-                  type="text" 
-                  name="dbSource"
-                  value={formData.dbSource}
-                  onChange={handleChange}
-                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  placeholder="Ej. LinkedIn Q1"
-                />
-              </div>
-            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
