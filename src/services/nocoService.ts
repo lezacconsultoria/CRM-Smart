@@ -22,11 +22,19 @@ export const nocoService = {
       const res = await axios.post(`${NOCODB_URL}/api/v1/auth/user/signin`, {
         email: 'lezacconsultoria@gmail.com',
         password: 'Gualeguay2025##'
+      }, {
+        timeout: 10000 // 10s timeout
       });
       ADMIN_TOKEN = res.data.token;
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error logging into NocoDB Master Account', e);
-      throw new Error('Internal Configuration Error: Cannot connect to DB');
+      if (e.code === 'ERR_NETWORK') {
+        throw new Error('Error de Red/CORS: No se puede alcanzar el servidor de NocoDB.');
+      }
+      if (e.response?.status === 401 || e.response?.status === 403) {
+        throw new Error('Error de Autenticación Maestra: Credenciales de sistema inválidas.');
+      }
+      throw new Error(`Error de Conexión DB: ${e.message || 'Error desconocido'}`);
     }
   },
 
@@ -70,8 +78,11 @@ export const nocoService = {
         };
       }
       return null;
-    } catch (e) {
+    } catch (e: any) {
       console.error('Login Error', e);
+      if (e.code === 'ERR_NETWORK' || !e.response) {
+        throw new Error('Error de Red/CORS: No se puede validar el usuario.');
+      }
       return null;
     }
   },

@@ -28,8 +28,9 @@ export default function Login({ onLogin }: LoginProps) {
       } else {
         setError('Credenciales inválidas. Intente con: admin1@lezac.com, admin2@lezac.com o roberto@lezac.com');
       }
-    } catch (err) {
-      setError('Error conectando a la base de datos.');
+    } catch (err: any) {
+      console.error('Submit Login Error:', err);
+      setError(err.message || 'Error conectando a la base de datos.');
     } finally {
       setIsSubmitting(false);
     }
