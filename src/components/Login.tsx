@@ -11,17 +11,42 @@ export default function Login({ onLogin }: LoginProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [retryInfo, setRetryInfo] = useState(''); // e.g. "Reintentando (2/4)..."
+
+  // Pre-warm: try to establish the NocoDB connection in the background
+  // so it's often ready before the user even clicks the button
+  useEffect(() => {
+    nocoService.masterLogin().catch(() => {
+      // Silently ignore — it will retry when the user submits
+    });
+  }, []);
+
+  const attemptLogin = async (attempt: number): Promise<User | null> => {
+    try {
+      return await nocoService.loginUser(email, password);
+    } catch (err: any) {
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'ERR_NETWORK' || err.message === 'Network Error';
+      const MAX_ATTEMPTS = 4;
+      if (isNetwork && attempt < MAX_ATTEMPTS) {
+        const delay = 800 * attempt; // 800ms, 1600ms, 2400ms...
+        setRetryInfo(`Problema de red — Reintentando (${attempt}/${MAX_ATTEMPTS - 1})...`);
+        await new Promise(res => setTimeout(res, delay));
+        nocoService.resetToken(); // Force a fresh token on every retry
+        return attemptLogin(attempt + 1);
+      }
+      throw err;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
+    setRetryInfo('');
     
     try {
-      // Connect to NocoDB
-      const user = await nocoService.loginUser(email, password);
+      const user = await attemptLogin(1);
       
       if (user) {
         onLogin(user, rememberMe);
@@ -30,9 +55,10 @@ export default function Login({ onLogin }: LoginProps) {
       }
     } catch (err: any) {
       console.error('Submit Login Error:', err);
-      setError(err.message || 'Error conectando a la base de datos.');
+      setError('No se pudo conectar al servidor después de varios intentos. Verifique su conexión a internet.');
     } finally {
       setIsSubmitting(false);
+      setRetryInfo('');
     }
   };
 
@@ -144,7 +170,7 @@ export default function Login({ onLogin }: LoginProps) {
                 {isSubmitting ? (
                   <>
                     <span className="material-symbols-outlined animate-spin mr-2">refresh</span>
-                    Verificando...
+                    {retryInfo || 'Verificando...'}
                   </>
                 ) : (
                   <>
