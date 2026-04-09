@@ -5,13 +5,20 @@ const NOCODB_URL = 'https://nocodb.lezacconsultoria.com';
 const BASE_ID = 'pwqcmbzgrz73kd1';
 
 // We store the admin token in memory after the first login to make sub-requests.
-// In a real application, this should be handled securely by a backend.
 let ADMIN_TOKEN = '';
+
+// Local Cache Keys
+const CACHE_KEYS = {
+  CONTACTS: 'crm_smart_cache_contacts',
+  TASKS: 'crm_smart_cache_tasks',
+  USERS: 'crm_smart_cache_users'
+};
 
 // Helper to set headers
 const getHeaders = () => ({
   'xc-auth': ADMIN_TOKEN,
-  'Content-Type': 'application/json'
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-cache'
 });
 
 // Retry helper with exponential backoff
@@ -132,77 +139,98 @@ export const nocoService = {
 
 
   // 3. Contacts (Contactos)
-  async getContacts(): Promise<ContactData[]> {
-    await this.masterLogin();
+  async getContacts(): Promise<{ list: ContactData[], isCache: boolean }> {
     try {
+      await this.masterLogin();
       const res = await axios.get(`${NOCODB_URL}/api/v1/db/data/noco/${BASE_ID}/m7t44xu1kj6xal8`, {
         headers: getHeaders(),
         params: { limit: 1000 }
       });
       
+      const list = res.data.list;
+      // Cache the response
+      localStorage.setItem(CACHE_KEYS.CONTACTS, JSON.stringify(list));
+      
       // Parse NocoDB format to App format
-      return res.data.list.map((c: any) => {
-        let assignedTo = c['Asignado'] || '';
-        if (c['Usuarios_id'] && Array.isArray(c['Usuarios_id']) && c['Usuarios_id'].length > 0) {
-           assignedTo = c['Usuarios_id'][0].Nombre || c['Usuarios_id'][0].Email || assignedTo;
-        } else if (c['Usuarios_id'] && c['Usuarios_id'].Nombre) {
-           assignedTo = c['Usuarios_id'].Nombre || c['Usuarios_id'].Email || assignedTo;
-        }
-
-          let parsedStages: any[] = [];
-          let contactStatus: string | undefined = undefined;
-          let contactPrice: number | undefined = undefined;
-
-          if (c['StagesJSON']) {
-            try {
-              const parsed = JSON.parse(c['StagesJSON']);
-              // Support both array (old) and object with metadata (new)
-              if (Array.isArray(parsed)) {
-                parsedStages = parsed;
-              } else if (parsed && Array.isArray(parsed.stages)) {
-                parsedStages = parsed.stages;
-                contactStatus = parsed.status;
-                contactPrice = parsed.price;
-              }
-            } catch (e) {
-              parsedStages = [];
-            }
-          }
-
-          const stage3 = parsedStages.find((s: any) => s.id === 3);
-          if (contactPrice === undefined && stage3?.price !== undefined) {
-            contactPrice = stage3.price;
-          }
-          
-          return {
-            id: String(c.Id),
-            importDate: c['Fecha importado'],
-            firstName: c['Nombre'] || '',
-            lastName: c['Apellido'] || '',
-            company: c['Empresa'] || '',
-            companyType: c['Tipo de empresa'],
-            jobTitle: c['Cargo'] || '',
-            profileLink: c['Link de perfil'],
-            email: c['Correo Electronico'] || '',
-            phone: c['Telefono'] || '',
-            province: c['Provincia'],
-            country: c['Pais'],
-            source: c['Origen DB'] || 'unknown',
-            dbSource: c['Origen DB'],
-            assignedTo: assignedTo,
-            price: contactPrice,
-            status: contactStatus,
-            activity: c['Actividad'] || '',
-            externalId: c['ids_origen'] || '',
-            isEmailValid: !!c['Email válido'],
-            tasks: c['TasksJSON'] ? JSON.parse(c['TasksJSON']) : [],
-            stages: parsedStages
-          };
-      });
+      return {
+        list: list.map((c: any) => this._mapContact(c)),
+        isCache: false
+      };
     } catch (e) {
-      console.error('Error fetching contacts', e);
-      return [];
+      console.error('Error in getContacts, trying cache', e);
+      const cached = localStorage.getItem(CACHE_KEYS.CONTACTS);
+      if (cached) {
+        try {
+          const list = JSON.parse(cached);
+          console.info('[nocoService] Loaded contacts from local cache');
+          return {
+            list: list.map((c: any) => this._mapContact(c)),
+            isCache: true
+          };
+        } catch (parseErr) {
+          console.error('Cache corruption', parseErr);
+        }
+      }
+      throw e; // If no cache, rethrow so App.tsx knows it's a hard fail
     }
+  },
+
+  _mapContact(c: any) {
+    let assignedTo = c['Asignado'] || '';
+    if (c['Usuarios_id'] && Array.isArray(c['Usuarios_id']) && c['Usuarios_id'].length > 0) {
+       assignedTo = c['Usuarios_id'][0].Nombre || c['Usuarios_id'][0].Email || assignedTo;
+    } else if (c['Usuarios_id'] && c['Usuarios_id'].Nombre) {
+       assignedTo = c['Usuarios_id'].Nombre || c['Usuarios_id'].Email || assignedTo;
+    }
+
+    let parsedStages: any[] = [];
+    let contactStatus: string | undefined = undefined;
+    let contactPrice: number | undefined = undefined;
+
+    if (c['StagesJSON']) {
+      try {
+        const parsed = JSON.parse(c['StagesJSON']);
+        if (Array.isArray(parsed)) {
+          parsedStages = parsed;
+        } else if (parsed && Array.isArray(parsed.stages)) {
+          parsedStages = parsed.stages;
+          contactStatus = parsed.status;
+          contactPrice = parsed.price;
+        }
+      } catch (e) {
+        parsedStages = [];
+      }
+    }
+
+    const stage3 = parsedStages.find((s: any) => s.id === 3);
+    if (contactPrice === undefined && stage3?.price !== undefined) {
+      contactPrice = stage3.price;
+    }
+    
+    return {
+      id: String(c.Id),
+      importDate: c['Fecha importado'],
+      firstName: c['Nombre'] || '',
+      lastName: c['Apellido'] || '',
+      company: c['Empresa'] || '',
+      companyType: c['Tipo de empresa'],
+      jobTitle: c['Cargo'] || '',
+      profileLink: c['Link de perfil'],
+      email: c['Correo Electronico'] || '',
+      phone: c['Telefono'] || '',
+      province: c['Provincia'],
+      country: c['Pais'],
+      source: c['Origen DB'] || 'unknown',
+      dbSource: c['Origen DB'],
+      assignedTo: assignedTo,
+      price: contactPrice,
+      status: contactStatus,
+      activity: c['Actividad'] || '',
+      externalId: c['ids_origen'] || '',
+      isEmailValid: !!c['Email válido'],
+      tasks: c['TasksJSON'] ? JSON.parse(c['TasksJSON']) : [],
+      stages: parsedStages
+    };
   },
 
   async isEmailDuplicate(email: string, excludeId?: string): Promise<boolean> {

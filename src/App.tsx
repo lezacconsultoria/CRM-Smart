@@ -31,7 +31,8 @@ export default function App() {
   const [selectedContact, setSelectedContact] = useState<ContactData | null>(null);
   const [editingContact, setEditingContact] = useState<ContactData | null>(null);
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<'network' | 'unknown' | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -95,11 +96,15 @@ export default function App() {
         setIsLoadingContacts(true);
         setLoadError(null);
         try {
-          const dbContacts = await nocoService.getContacts();
-          setContacts(dbContacts);
+          const result = await nocoService.getContacts();
+          setContacts(result.list);
+          setIsOffline(result.isCache);
+          setLoadError(null);
         } catch (e: any) {
           console.error("Failed loading from DB", e);
           const isNetwork = e.message === 'ERR_NETWORK' || (e.message || '').includes('ERR_NETWORK');
+          
+          // If nocoService threw, it means there was NO cache either
           setLoadError(isNetwork ? 'network' : 'unknown');
         } finally {
           setIsLoadingContacts(false);
@@ -194,8 +199,8 @@ export default function App() {
       await nocoService.importBulkContacts(toInsert);
       
       // Reload contacts after import to make sure IDs match DB
-      const refreshed = await nocoService.getContacts();
-      setContacts(refreshed);
+      const result = await nocoService.getContacts();
+      setContacts(result.list);
     } catch(e) {
       console.error("Import failed", e);
       alert("La importación masiva ha fallado..");
@@ -245,6 +250,20 @@ export default function App() {
 
   return (
     <>
+      {isOffline && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 py-2 px-4 flex items-center justify-center gap-3 z-[100] relative backdrop-blur-md">
+          <span className="material-symbols-outlined text-amber-500 text-sm animate-pulse">cloud_off</span>
+          <span className="text-[11px] font-bold text-amber-500 uppercase tracking-widest">
+            Modo Offline: Usando datos en caché. Los cambios no se sincronizarán.
+          </span>
+          <button 
+            onClick={() => setRetryCount(c => c + 1)}
+            className="ml-4 px-3 py-1 bg-amber-500 text-white rounded-full text-[10px] font-bold hover:bg-amber-600 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <Layout currentView={currentView} onNavigate={handleNavigate} onOpenNewContact={handleOpenNewContact} onLogout={handleLogout} user={currentUser}>
         <Suspense fallback={<LoadingFallback />}>
           {isLoadingContacts && (currentView === 'contacts' || currentView === 'dashboard') ? (

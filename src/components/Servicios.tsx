@@ -132,21 +132,28 @@ export default function Servicios() {
   };
 
   const handleSave = () => {
-    if (!formData.title?.trim()) {
-      alert('El título es requerido');
+    const title = formData.title?.trim();
+    if (!title) {
+      alert('El título del servicio es requerido');
       return;
     }
     
     if (editingService) {
-      setServices(prevServices => prevServices.map(s => 
-        s.id === editingService.id 
-          ? { ...s, ...formData } as Service 
-          : s
-      ));
+      // Logic for editing existing service
+      const updatedService: Service = {
+        ...editingService,
+        ...formData,
+        id: editingService.id, // Ensure ID remains immutable
+        title, // Use trimmed title
+        objections: formData.objections || []
+      } as Service;
+
+      setServices(prev => prev.map(s => s.id === editingService.id ? updatedService : s));
     } else {
+      // Logic for creating new service
       const newService: Service = {
-        id: formData.id || generateId(),
-        title: formData.title || '',
+        id: generateId(),
+        title,
         icon: formData.icon || 'rocket_launch',
         tag: formData.tag || 'Nuevo',
         tagType: formData.tagType || 'other',
@@ -155,7 +162,7 @@ export default function Servicios() {
         avgTicket: formData.avgTicket || '',
         objections: formData.objections || []
       };
-      setServices(prevServices => [...prevServices, newService]);
+      setServices(prev => [...prev, newService]);
     }
     
     handleCloseModal();
@@ -169,7 +176,7 @@ export default function Servicios() {
 
   const confirmDelete = () => {
     if (deleteId) {
-      setServices(services.filter(s => s.id !== deleteId));
+      setServices(prev => prev.filter(s => s.id !== deleteId));
       setDeleteId(null);
     }
   };
