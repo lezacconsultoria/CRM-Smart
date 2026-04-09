@@ -21,8 +21,11 @@ const getHeaders = () => ({
   'Cache-Control': 'no-cache'
 });
 
-// Retry helper with exponential backoff
-const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delayMs = 800): Promise<T> => {
+// Default timeout for all requests (8 seconds)
+const REQUEST_TIMEOUT = 8000;
+
+// Retry helper — only 1 extra retry with short delay to avoid blocking the UI
+const withRetry = async <T>(fn: () => Promise<T>, retries = 2, delayMs = 300): Promise<T> => {
   let lastError: any;
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -32,8 +35,8 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delayMs = 800): P
       const isNetworkError = e.code === 'ERR_NETWORK' || e.code === 'ERR_CONNECTION_RESET' || e.message === 'Network Error';
       const failingUrl = e.config?.url || 'URL unknown';
       if (!isNetworkError || attempt === retries) break;
-      console.warn(`[nocoService] Error on ${failingUrl} (Attempt ${attempt}/${retries}). Retrying in ${delayMs * attempt}ms...`);
-      await new Promise(res => setTimeout(res, delayMs * attempt));
+      console.warn(`[nocoService] Error on ${failingUrl} (Attempt ${attempt}/${retries}). Retrying in ${delayMs}ms...`);
+      await new Promise(res => setTimeout(res, delayMs));
     }
   }
   throw lastError;
@@ -44,15 +47,16 @@ export const nocoService = {
   async masterLogin() {
     if (ADMIN_TOKEN) return;
     try {
-      const res = await withRetry(() => axios.post(`${NOCODB_URL}/api/v1/auth/user/signin`, {
+      // No retry on masterLogin — fail fast so getContacts can fall back to cache quickly
+      const res = await axios.post(`${NOCODB_URL}/api/v1/auth/user/signin`, {
         email: 'lezacconsultoria@gmail.com',
         password: 'Gualeguay2025##'
-      }));
+      }, { timeout: REQUEST_TIMEOUT });
       ADMIN_TOKEN = res.data.token;
     } catch (e: any) {
       console.error('Error logging into NocoDB Master Account', e);
       const detail = e.code ? ` (${e.code})` : (e.message ? `: ${e.message}` : '');
-      if (e.code === 'ERR_NETWORK' || e.message === 'Network Error') {
+      if (e.code === 'ERR_NETWORK' || e.message === 'Network Error' || e.code === 'ECONNABORTED') {
         throw new Error(`ERR_NETWORK`);
       }
       if (e.response?.status === 401 || e.response?.status === 403) {
@@ -144,7 +148,8 @@ export const nocoService = {
       await this.masterLogin();
       const res = await axios.get(`${NOCODB_URL}/api/v1/db/data/noco/${BASE_ID}/m7t44xu1kj6xal8`, {
         headers: getHeaders(),
-        params: { limit: 1000 }
+        params: { limit: 1000 },
+        timeout: REQUEST_TIMEOUT
       });
       
       const list = res.data.list;
