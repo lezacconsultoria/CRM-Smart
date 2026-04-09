@@ -325,7 +325,7 @@ export default function Plantillas() {
                 </div>
               </div>
             ))
-          )}
+          })()}
         </div>
       </div>
 
