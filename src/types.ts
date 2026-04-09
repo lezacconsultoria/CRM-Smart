@@ -31,6 +31,7 @@ export interface StageData {
   id: number;
   name: string;
   notes: Note[];
+  price?: number;
 }
 
 export interface ContactData {
@@ -53,6 +54,7 @@ export interface ContactData {
   source: 'linkedin' | 'whatsapp' | 'email' | 'db' | '';
   dbSource?: string;
   assignedTo?: string;
+  price?: number;
   status?: 'won' | 'lost' | 'active';
   tasks?: Task[];
   stages?: StageData[];

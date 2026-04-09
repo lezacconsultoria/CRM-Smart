@@ -14,28 +14,51 @@ const getHeaders = () => ({
   'Content-Type': 'application/json'
 });
 
+// Retry helper with exponential backoff
+const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delayMs = 800): Promise<T> => {
+  let lastError: any;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      lastError = e;
+      const isNetworkError = e.code === 'ERR_NETWORK' || e.code === 'ERR_CONNECTION_RESET' || e.message === 'Network Error';
+      const failingUrl = e.config?.url || 'URL unknown';
+      if (!isNetworkError || attempt === retries) break;
+      console.warn(`[nocoService] Error on ${failingUrl} (Attempt ${attempt}/${retries}). Retrying in ${delayMs * attempt}ms...`);
+      await new Promise(res => setTimeout(res, delayMs * attempt));
+    }
+  }
+  throw lastError;
+};
+
 export const nocoService = {
   // 1. Initial Authentication (Getting the proxy token)
   async masterLogin() {
     if (ADMIN_TOKEN) return;
     try {
-      const res = await axios.post(`${NOCODB_URL}/api/v1/auth/user/signin`, {
+      const res = await withRetry(() => axios.post(`${NOCODB_URL}/api/v1/auth/user/signin`, {
         email: 'lezacconsultoria@gmail.com',
         password: 'Gualeguay2025##'
-      }, {
-        timeout: 10000 // 10s timeout
-      });
+      }));
       ADMIN_TOKEN = res.data.token;
     } catch (e: any) {
       console.error('Error logging into NocoDB Master Account', e);
-      if (e.code === 'ERR_NETWORK') {
-        throw new Error('Error de Red/CORS: No se puede alcanzar el servidor de NocoDB.');
+      const detail = e.code ? ` (${e.code})` : (e.message ? `: ${e.message}` : '');
+      if (e.code === 'ERR_NETWORK' || e.message === 'Network Error') {
+        throw new Error(`ERR_NETWORK`);
       }
       if (e.response?.status === 401 || e.response?.status === 403) {
         throw new Error('Error de Autenticación Maestra: Credenciales de sistema inválidas.');
       }
-      throw new Error(`Error de Conexión DB: ${e.message || 'Error desconocido'}`);
+      throw new Error(`Error de Conexión DB${detail}`);
     }
+  },
+
+  // Clears the cached token so masterLogin will retry on next call
+  resetToken() {
+    ADMIN_TOKEN = '';
+    this._cachedUsers = null;
   },
 
   // Internal cache to minimize fetching users
@@ -80,8 +103,9 @@ export const nocoService = {
       return null;
     } catch (e: any) {
       console.error('Login Error', e);
+      const detail = e.code ? ` (${e.code})` : (e.message ? `: ${e.message}` : '');
       if (e.code === 'ERR_NETWORK' || !e.response) {
-        throw new Error('Error de Red/CORS: No se puede validar el usuario.');
+        throw new Error(`Error de Red/CORS: No se puede validar el usuario${detail}.`);
       }
       return null;
     }
@@ -125,28 +149,55 @@ export const nocoService = {
            assignedTo = c['Usuarios_id'].Nombre || c['Usuarios_id'].Email || assignedTo;
         }
 
-        return {
-          id: String(c.Id),
-          importDate: c['Fecha importado'],
-          firstName: c['Nombre'] || '',
-          lastName: c['Apellido'] || '',
-          company: c['Empresa'] || '',
-          companyType: c['Tipo de empresa'],
-          jobTitle: c['Cargo'] || '',
-          profileLink: c['Link de perfil'],
-          email: c['Correo Electronico'] || '',
-          phone: c['Telefono'] || '',
-          province: c['Provincia'],
-          country: c['Pais'],
-          source: c['Origen DB'] || 'unknown',
-          dbSource: c['Origen DB'],
-          assignedTo: assignedTo,
-          activity: c['Actividad'] || '',
-          externalId: c['ids_origen'] || '',
-          isEmailValid: !!c['Email válido'],
-          tasks: c['TasksJSON'] ? JSON.parse(c['TasksJSON']) : [],
-          stages: c['StagesJSON'] ? JSON.parse(c['StagesJSON']) : []
-        };
+          let parsedStages: any[] = [];
+          let contactStatus: string | undefined = undefined;
+          let contactPrice: number | undefined = undefined;
+
+          if (c['StagesJSON']) {
+            try {
+              const parsed = JSON.parse(c['StagesJSON']);
+              // Support both array (old) and object with metadata (new)
+              if (Array.isArray(parsed)) {
+                parsedStages = parsed;
+              } else if (parsed && Array.isArray(parsed.stages)) {
+                parsedStages = parsed.stages;
+                contactStatus = parsed.status;
+                contactPrice = parsed.price;
+              }
+            } catch (e) {
+              parsedStages = [];
+            }
+          }
+
+          const stage3 = parsedStages.find((s: any) => s.id === 3);
+          if (contactPrice === undefined && stage3?.price !== undefined) {
+            contactPrice = stage3.price;
+          }
+          
+          return {
+            id: String(c.Id),
+            importDate: c['Fecha importado'],
+            firstName: c['Nombre'] || '',
+            lastName: c['Apellido'] || '',
+            company: c['Empresa'] || '',
+            companyType: c['Tipo de empresa'],
+            jobTitle: c['Cargo'] || '',
+            profileLink: c['Link de perfil'],
+            email: c['Correo Electronico'] || '',
+            phone: c['Telefono'] || '',
+            province: c['Provincia'],
+            country: c['Pais'],
+            source: c['Origen DB'] || 'unknown',
+            dbSource: c['Origen DB'],
+            assignedTo: assignedTo,
+            price: contactPrice,
+            status: contactStatus,
+            activity: c['Actividad'] || '',
+            externalId: c['ids_origen'] || '',
+            isEmailValid: !!c['Email válido'],
+            tasks: c['TasksJSON'] ? JSON.parse(c['TasksJSON']) : [],
+            stages: parsedStages
+          };
       });
     } catch (e) {
       console.error('Error fetching contacts', e);
@@ -223,14 +274,23 @@ export const nocoService = {
   async createContact(contact: Partial<ContactData>): Promise<ContactData> {
     await this.masterLogin();
     
-    // Default stages if none provided
-    const defaultStages = [
+    const defaultStages: any[] = [
       { id: 1, name: 'Descubrimiento', notes: [] },
       { id: 2, name: 'Propuesta', notes: [] },
       { id: 3, name: 'Negociación', notes: [] },
       { id: 4, name: 'Cierre', notes: [] },
-      { id: 5, name: 'Post-Venta', notes: [] },
     ];
+
+    let stagesToSave = contact.stages && contact.stages.length > 0 ? contact.stages : defaultStages;
+    let s3 = stagesToSave.find(s => s.id === 3);
+    if (s3 && contact.price !== undefined) {
+       s3 = { ...s3, price: contact.price };
+       stagesToSave = stagesToSave.map(s => s.id === 3 ? s3! : s);
+    }
+
+    const stagesPayload: any = { stages: stagesToSave };
+    if (contact.status !== undefined) stagesPayload.status = contact.status;
+    if (contact.price !== undefined) stagesPayload.price = contact.price;
 
     const payload: any = {
       'Fecha importado': contact.importDate || new Date().toISOString().split('T')[0],
@@ -249,7 +309,7 @@ export const nocoService = {
       'ids_origen': contact.externalId,
       'Email válido': contact.isEmailValid,
       'TasksJSON': JSON.stringify(contact.tasks || []),
-      'StagesJSON': JSON.stringify(contact.stages && contact.stages.length > 0 ? contact.stages : defaultStages)
+      'StagesJSON': JSON.stringify(stagesPayload)
     };
 
     if (contact.profileLink) {
@@ -285,34 +345,40 @@ export const nocoService = {
   async importBulkContacts(contacts: Partial<ContactData>[]): Promise<void> {
     await this.masterLogin();
     
-    const defaultStages = [
+    const defaultStages: any[] = [
       { id: 1, name: 'Descubrimiento', notes: [] },
       { id: 2, name: 'Propuesta', notes: [] },
       { id: 3, name: 'Negociación', notes: [] },
       { id: 4, name: 'Cierre', notes: [] },
-      { id: 5, name: 'Post-Venta', notes: [] },
     ];
 
-    const payload = contacts.map(c => ({
-      'Fecha importado': c.importDate || new Date().toISOString().split('T')[0],
-      'Nombre': c.firstName || '',
-      'Apellido': c.lastName || '',
-      'Empresa': c.company || '',
-      'Tipo de empresa': c.companyType,
-      'Cargo': c.jobTitle || '',
-      'Link de perfil': c.profileLink,
-      'Correo Electronico': c.email || '',
-      'Telefono': c.phone || '',
-      'Provincia': c.province,
-      'Pais': c.country,
-      'Origen DB': c.source || c.dbSource || 'Manual Import',
-      'Asignado': c.assignedTo,
-      'Actividad': c.activity || '',
-      'ids_origen': c.externalId || '',
-      'Email válido': c.isEmailValid || false,
-      'TasksJSON': JSON.stringify(c.tasks || []),
-      'StagesJSON': JSON.stringify(c.stages && c.stages.length > 0 ? c.stages : defaultStages)
-    }));
+    const payload = contacts.map(c => {
+      let stagesToSave = c.stages && c.stages.length > 0 ? c.stages : defaultStages;
+      let s3 = stagesToSave.find((s: any) => s.id === 3);
+      if (s3 && c.price !== undefined) {
+         s3.price = c.price;
+      }
+      return {
+        'Fecha importado': c.importDate || new Date().toISOString().split('T')[0],
+        'Nombre': c.firstName || '',
+        'Apellido': c.lastName || '',
+        'Empresa': c.company || '',
+        'Tipo de empresa': c.companyType,
+        'Cargo': c.jobTitle || '',
+        'Link de perfil': c.profileLink,
+        'Correo Electronico': c.email || '',
+        'Telefono': c.phone || '',
+        'Provincia': c.province,
+        'Pais': c.country,
+        'Origen DB': c.source || c.dbSource || 'Manual Import',
+        'Asignado': c.assignedTo,
+        'Actividad': c.activity || '',
+        'ids_origen': c.externalId || '',
+        'Email válido': c.isEmailValid || false,
+        'TasksJSON': JSON.stringify(c.tasks || []),
+        'StagesJSON': JSON.stringify(stagesToSave)
+      };
+    });
 
     // Perform bulk insert
     const cRes = await axios.post(`${NOCODB_URL}/api/v1/db/data/bulk/noco/${BASE_ID}/m7t44xu1kj6xal8`, payload, {
@@ -372,7 +438,24 @@ export const nocoService = {
       payload['TasksJSON'] = JSON.stringify(contact.tasks);
     }
     if (contact.stages) {
-      payload['StagesJSON'] = JSON.stringify(contact.stages);
+      let stagesToSave = [...contact.stages];
+      // Inject price into stage 3 data
+      let s3 = stagesToSave.find((s: any) => s.id === 3);
+      if (s3 && contact.price !== undefined) {
+         s3 = { ...s3, price: contact.price };
+         stagesToSave = stagesToSave.map(s => s.id === 3 ? s3! : s);
+      }
+      // Wrap in an object to persist status and price at the top level
+      const stagesPayload: any = {
+        stages: stagesToSave,
+      };
+      if (contact.status !== undefined) {
+        stagesPayload.status = contact.status;
+      }
+      if (contact.price !== undefined) {
+        stagesPayload.price = contact.price;
+      }
+      payload['StagesJSON'] = JSON.stringify(stagesPayload);
     }
     
     // NocoDB sometimes rejects empty string for URL column

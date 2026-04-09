@@ -64,13 +64,18 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
   };
 
   const getContactState = (contact: ContactData) => {
+    // Check closed status first
+    if (contact.status === 'won') return { label: 'Ganado', color: 'bg-green-500/10 text-green-500 border-green-500/30' };
+    if (contact.status === 'lost') return { label: 'Perdido', color: 'bg-error/10 text-error border-error/30' };
+
     let activeStage = 0;
     contact.stages?.forEach(stage => {
-      if (stage.notes && stage.notes.length > 0) {
+      if ((stage.notes && stage.notes.length > 0) || (stage.id === 3 && contact.price && contact.price > 0)) {
         activeStage = Math.max(activeStage, stage.id);
       }
     });
     
+    if (activeStage === 4) return { label: 'Cierre', color: 'bg-violet-500/10 text-violet-400 border-violet-500/30' };
     if (activeStage === 3) return { label: 'Negociación', color: 'bg-tertiary-container/20 text-tertiary-container border-tertiary-container/30' };
     if (activeStage === 2) return { label: 'Propuesta', color: 'bg-secondary-container/20 text-secondary-container border-secondary-container/30' };
     if (activeStage === 1) return { label: 'Descubrimiento', color: 'bg-primary-container/20 text-primary border-primary-container/30' };

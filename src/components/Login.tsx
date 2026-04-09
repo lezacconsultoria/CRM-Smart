@@ -52,7 +52,7 @@ export default function Login({ onLogin }: LoginProps) {
             <span className="material-symbols-outlined text-primary text-3xl">hub</span>
           </div>
           <h1 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface mb-2">
-            CRM Cliente Smart
+            CRM Smart
           </h1>
           <p className="font-body text-outline text-sm tracking-wide">
             Gestión comercial estratégica para equipos de alto nivel

@@ -29,7 +29,6 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
       { id: 2, name: 'Propuesta', notes: [] },
       { id: 3, name: 'Negociación', notes: [] },
       { id: 4, name: 'Cierre', notes: [] },
-      { id: 5, name: 'Post-Venta', notes: [] },
     ]
   });
 
@@ -52,7 +51,6 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
             { id: 2, name: 'Propuesta', notes: [] },
             { id: 3, name: 'Negociación', notes: [] },
             { id: 4, name: 'Cierre', notes: [] },
-            { id: 5, name: 'Post-Venta', notes: [] },
           ]
         });
       } else {
@@ -74,7 +72,6 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
             { id: 2, name: 'Propuesta', notes: [] },
             { id: 3, name: 'Negociación', notes: [] },
             { id: 4, name: 'Cierre', notes: [] },
-            { id: 5, name: 'Post-Venta', notes: [] },
           ]
         });
       }
@@ -150,7 +147,6 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
         { id: 2, name: 'Propuesta', notes: [] },
         { id: 3, name: 'Negociación', notes: [] },
         { id: 4, name: 'Cierre', notes: [] },
-        { id: 5, name: 'Post-Venta', notes: [] },
       ]
     });
     setInitialNote('');
@@ -396,14 +392,28 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-outline uppercase tracking-wider">País</label>
-                <input 
-                  type="text" 
-                  name="country"
-                  value={formData.country || ''}
-                  onChange={handleChange}
-                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  placeholder="Ej. Argentina"
-                />
+                <div className="relative">
+                  <select 
+                    name="country"
+                    value={formData.country || ''}
+                    onChange={handleChange}
+                    className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all appearance-none"
+                  >
+                    <option value="">Selecciona el país</option>
+                    <option value="Argentina">Argentina</option>
+                    <option value="Uruguay">Uruguay</option>
+                    <option value="Paraguay">Paraguay</option>
+                    <option value="Chile">Chile</option>
+                    <option value="Bolivia">Bolivia</option>
+                    <option value="Perú">Perú</option>
+                    <option value="Colombia">Colombia</option>
+                    <option value="Ecuador">Ecuador</option>
+                    <option value="México">México</option>
+                  </select>
+                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[20px]">
+                    expand_more
+                  </span>
+                </div>
               </div>
             </div>
 

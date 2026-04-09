@@ -31,42 +31,83 @@ export default function App() {
   const [selectedContact, setSelectedContact] = useState<ContactData | null>(null);
   const [editingContact, setEditingContact] = useState<ContactData | null>(null);
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [contactsToDelete, setContactsToDelete] = useState<ContactData[]>([]);
 
-  // Check local/session storage on mount
+  // Check local/session storage on mount and handle initial route
   useEffect(() => {
     const savedUser = localStorage.getItem('crmUser') || sessionStorage.getItem('crmUser');
+    
+    // Get actual view from Path
+    const path = window.location.pathname.replace('/', '');
+    const validViews = ['dashboard', 'contacts', 'servicios', 'plantillas'];
+    const initialView = validViews.includes(path) ? (path as ViewState) : 'dashboard';
+
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser) as User;
         setCurrentUser(user);
-        setCurrentView('dashboard');
+        setCurrentView(initialView);
+        
+        // Ensure the URL matches the initial view
+        if (path !== initialView) {
+          window.history.replaceState({ view: initialView }, '', `/${initialView}`);
+        }
       } catch (e) {
         console.error('Failed to restore user session', e);
+        setCurrentView('login');
+        window.history.replaceState({ view: 'login' }, '', '/');
+      }
+    } else {
+      // If NOT logged in, we must be in login view
+      setCurrentView('login');
+      // Force root path if not there
+      if (window.location.pathname !== '/') {
+        window.history.replaceState({ view: 'login' }, '', '/');
       }
     }
+
+    // Handle browser back/forward buttons
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.view) {
+        setCurrentView(event.state.view);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  const handleNavigate = (view: ViewState) => {
+    setCurrentView(view);
+    // Sync with URL without reloading
+    window.history.pushState({ view }, '', `/${view}`);
+  };
 
   // Fetch true contacts on successful login
   useEffect(() => {
     if (currentUser) {
       const loadInitialData = async () => {
         setIsLoadingContacts(true);
+        setLoadError(null);
         try {
           const dbContacts = await nocoService.getContacts();
           setContacts(dbContacts);
-        } catch (e) {
+        } catch (e: any) {
           console.error("Failed loading from DB", e);
+          const isNetwork = e.message === 'ERR_NETWORK' || (e.message || '').includes('ERR_NETWORK');
+          setLoadError(isNetwork ? 'network' : 'unknown');
         } finally {
           setIsLoadingContacts(false);
         }
       };
       loadInitialData();
     }
-  }, [currentUser]);
+  }, [currentUser, retryCount]);
 
   // RBAC Filtering -> Derived state of contacts based on the User's Role
   // Normal users ONLY see their assigned contacts (by name or email)
@@ -177,7 +218,7 @@ export default function App() {
 
   const handleSelectContact = (contact: ContactData) => {
     setSelectedContact(contact);
-    setCurrentView('contact-details');
+    handleNavigate('contact-details');
   };
 
   const handleLogin = (user: User, rememberMe: boolean) => {
@@ -187,7 +228,7 @@ export default function App() {
     } else {
       sessionStorage.setItem('crmUser', JSON.stringify(user));
     }
-    setCurrentView('dashboard');
+    handleNavigate('dashboard');
   };
 
   const handleLogout = () => {
@@ -195,10 +236,7 @@ export default function App() {
     localStorage.removeItem('crmUser');
     sessionStorage.removeItem('crmUser');
     setCurrentView('login');
-  };
-
-  const handleNavigate = (view: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas') => {
-    setCurrentView(view);
+    window.history.pushState({ view: 'login' }, '', '/');
   };
 
   if (currentView === 'login') {
@@ -209,8 +247,33 @@ export default function App() {
     <>
       <Layout currentView={currentView} onNavigate={handleNavigate} onOpenNewContact={handleOpenNewContact} onLogout={handleLogout} user={currentUser}>
         <Suspense fallback={<LoadingFallback />}>
-          {isLoadingContacts && currentView === 'contacts' ? (
+          {isLoadingContacts && (currentView === 'contacts' || currentView === 'dashboard') ? (
             <LoadingFallback />
+          ) : loadError && (currentView === 'contacts' || currentView === 'dashboard') ? (
+            <div className="flex items-center justify-center min-h-[60vh] p-8">
+              <div className="bg-surface-container rounded-3xl border border-error/20 p-10 text-center max-w-md w-full shadow-xl">
+                <div className="w-20 h-20 rounded-full bg-error/10 flex items-center justify-center text-error mx-auto mb-6">
+                  <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>wifi_off</span>
+                </div>
+                <h2 className="text-2xl font-headline font-bold text-white mb-3">Sin conexión al servidor</h2>
+                <p className="text-on-surface-variant text-sm leading-relaxed mb-2">
+                  No se pudo conectar con la base de datos. Esto suele ser un problema temporal de red o certificado TLS.
+                </p>
+                <p className="text-outline text-xs mb-8">
+                  Intenta nuevamente — el sistema reintentará automáticamente hasta 3 veces.
+                </p>
+                <button
+                  onClick={() => {
+                    nocoService.resetToken();
+                    setRetryCount(c => c + 1);
+                  }}
+                  className="w-full py-4 rounded-2xl bg-primary text-on-primary-container font-bold text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span>
+                  Reintentar conexión
+                </button>
+              </div>
+            </div>
           ) : (
             <>
               {currentView === 'dashboard' && <Dashboard onOpenNewContact={handleOpenNewContact} contacts={filteredContacts} user={currentUser} />}
@@ -227,7 +290,15 @@ export default function App() {
                   user={currentUser}
                 />
               )}
-              {currentView === 'contact-details' && <ContactDetails contact={selectedContact} onEdit={() => selectedContact && handleEditContact(selectedContact)} onUpdateContact={handleSaveContact} user={currentUser} />}
+              {currentView === 'contact-details' && (
+                <ContactDetails 
+                  contact={selectedContact} 
+                  onEdit={() => selectedContact && handleEditContact(selectedContact)} 
+                  onBack={() => handleNavigate('contacts')}
+                  onUpdateContact={handleSaveContact} 
+                  user={currentUser} 
+                />
+              )}
               {currentView === 'servicios' && <Servicios />}
               {currentView === 'plantillas' && <Plantillas />}
             </>

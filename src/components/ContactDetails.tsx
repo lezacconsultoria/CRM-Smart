@@ -4,6 +4,7 @@ import { ContactData, Note, Task, StageData, User } from '../types';
 interface ContactDetailsProps {
   contact: ContactData | null;
   onEdit: () => void;
+  onBack: () => void;
   onUpdateContact: (contact: ContactData) => void;
   user?: User | null;
 }
@@ -16,7 +17,7 @@ const getFirstDayOfMonth = (year: number, month: number) => {
   return new Date(year, month, 1).getDay();
 };
 
-export default function ContactDetails({ contact, onEdit, onUpdateContact, user }: ContactDetailsProps) {
+export default function ContactDetails({ contact, onEdit, onBack, onUpdateContact, user }: ContactDetailsProps) {
   const [currentStage, setCurrentStage] = useState(1);
   const [currentDate, setCurrentDate] = useState(new Date());
   const defaultStages = [
@@ -24,14 +25,16 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
     { id: 2, name: 'Propuesta', notes: [] },
     { id: 3, name: 'Negociación', notes: [] },
     { id: 4, name: 'Cierre', notes: [] },
-    { id: 5, name: 'Post-Venta', notes: [] },
   ];
 
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
   const [stages, setStages] = useState<StageData[]>(() => {
     let initial = (contact?.stages && contact.stages.length > 0) ? contact.stages : defaultStages;
-    if (initial.length < 5) initial = [...initial, ...defaultStages.slice(initial.length)];
+    if (initial.length < 4) initial = [...initial, ...defaultStages.slice(initial.length)];
     return initial;
   });
+  const [priceInput, setPriceInput] = useState<string>(contact?.price?.toString() || '');
+  const [priceError, setPriceError] = useState<string>('');
   const [noteInput, setNoteInput] = useState('');
   const [selectedReminder, setSelectedReminder] = useState<number | null>(null);
   const [selectedReminderDate, setSelectedReminderDate] = useState<string>('');
@@ -53,9 +56,20 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
   useEffect(() => {
     if (contact) {
       let initial = (contact.stages && contact.stages.length > 0) ? contact.stages : defaultStages;
-      if (initial.length < 5) initial = [...initial, ...defaultStages.slice(initial.length)];
+      if (initial.length < 4) initial = [...initial, ...defaultStages.slice(initial.length)];
       setStages(initial);
       setTasks(contact.tasks || []);
+      setPriceInput(contact.price?.toString() || '');
+      setPriceError('');
+      if (contact.status === 'won' || contact.status === 'lost') {
+        setCurrentStage(4);
+      } else {
+        // Detect highest stage based on notes OR if stage 3 has a price set
+        const highestStage = initial.slice().reverse().find(s => 
+          (s.notes && s.notes.length > 0) || (s.id === 3 && contact.price && contact.price > 0)
+        );
+        setCurrentStage(highestStage ? highestStage.id : 1);
+      }
     }
   }, [contact]);
 
@@ -162,8 +176,52 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
   };
 
   const handleNextStage = () => {
-    if (currentStage < 5) {
+    if (currentStage < 4) {
       setCurrentStage(prev => prev + 1);
+    }
+  };
+
+  const handleSavePrice = () => {
+    if (!priceInput || isNaN(Number(priceInput)) || Number(priceInput) <= 0) {
+      setPriceError('El precio debe ser mayor a 0');
+      return;
+    }
+    setPriceError('');
+    const price = Number(priceInput);
+    const updatedStages = stages.map(s =>
+      s.id === 3 ? { ...s, price } : s
+    );
+    setStages(updatedStages);
+    if (contact) {
+      onUpdateContact({ 
+        ...contact,
+        stages: updatedStages,
+        price,
+      });
+    }
+    setIsEditingPrice(false);
+  };
+
+  const handleCloseStage3 = (newStatus: 'won' | 'lost') => {
+    if (!priceInput || isNaN(Number(priceInput)) || Number(priceInput) <= 0) {
+      setPriceError('El precio es obligatorio y debe ser mayor a 0');
+      return;
+    }
+    setPriceError('');
+    const price = Number(priceInput);
+    // Inject the price into Stage 3 so it persists in StagesJSON
+    const updatedStages = stages.map(s =>
+      s.id === 3 ? { ...s, price } : s
+    );
+    setStages(updatedStages);
+    setCurrentStage(4);
+    if (contact) {
+      onUpdateContact({ 
+        ...contact,
+        stages: updatedStages,
+        status: newStatus,
+        price,
+      });
     }
   };
 
@@ -177,6 +235,22 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
 
   return (
     <div className="pt-6 px-4 md:pt-8 md:px-8 pb-24 md:pb-12 min-h-screen">
+      {/* Navigation Header */}
+      <div className="flex items-center justify-between mb-6">
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-high/50 text-outline hover:text-white hover:bg-surface-container-highest transition-all group border border-outline-variant/10"
+        >
+          <span className="material-symbols-outlined text-[20px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
+          <span className="text-sm font-bold">Volver a la lista</span>
+        </button>
+        
+        <div className="hidden md:flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          <span className="text-[10px] text-outline font-bold uppercase tracking-widest italic">Visualización Activa</span>
+        </div>
+      </div>
+
       {/* Executive Header Block */}
       <section className="mb-8 md:mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col md:flex-row items-start justify-between gap-6 md:gap-8">
@@ -312,7 +386,24 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
               )}
               {(!contact.status || contact.status === 'active') && (
                 <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                  {currentStage < 5 ? (
+                  {currentStage === 3 ? (
+                    <>
+                      <button 
+                        onClick={() => handleCloseStage3('won')}
+                        className="w-full sm:w-auto px-4 py-2 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-lg text-xs font-bold transition-colors border border-green-500/20 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">check</span>
+                        Ganado
+                      </button>
+                      <button 
+                        onClick={() => handleCloseStage3('lost')}
+                        className="w-full sm:w-auto px-4 py-2 bg-error/10 text-error hover:bg-error/20 rounded-lg text-xs font-bold transition-colors border border-error/20 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">close</span>
+                        Perdido
+                      </button>
+                    </>
+                  ) : currentStage < 4 ? (
                     <button 
                       onClick={handleNextStage}
                       className="w-full sm:w-auto px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold transition-colors border border-primary/20"
@@ -324,27 +415,6 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
                       Etapa Final Activa
                     </span>
                   )}
-                  
-                  <button 
-                    onClick={() => {
-                        if (contact) onUpdateContact({ ...contact, status: 'won' });
-                    }}
-                    className="w-full sm:w-auto px-3 py-2 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-lg text-xs font-bold transition-colors border border-green-500/20 flex items-center gap-1 justify-center"
-                    title="Marcar como Cerrado/Ganado"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">check</span>
-                    Ganado
-                  </button>
-                  <button 
-                    onClick={() => {
-                        if (contact) onUpdateContact({ ...contact, status: 'lost' });
-                    }}
-                    className="w-full sm:w-auto px-3 py-2 bg-error/10 text-error hover:bg-error/20 rounded-lg text-xs font-bold transition-colors border border-error/20 flex items-center gap-1 justify-center"
-                    title="Marcar como Perdido"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">close</span>
-                    Perdido
-                  </button>
                 </div>
               )}
             </div>
@@ -355,22 +425,97 @@ export default function ContactDetails({ contact, onEdit, onUpdateContact, user 
                 <div 
                   key={stage.id}
                   className={`flex-1 p-3 rounded-lg border ${
-                    currentStage === stage.id 
-                      ? 'bg-primary/10 border-primary/30 text-primary' 
-                      : currentStage > stage.id
-                        ? 'bg-surface-container-high border-outline-variant/20 text-outline'
-                        : 'bg-surface-container-lowest border-outline-variant/5 text-outline/50'
+                    currentStage === stage.id && stage.id === 4 && contact.status === 'won'
+                      ? 'bg-green-500/10 border-green-500/40 text-green-500 shadow-[0_0_15px_rgba(34,197,94,0.1)]'
+                      : currentStage === stage.id && stage.id === 4 && contact.status === 'lost'
+                        ? 'bg-error/10 border-error/40 text-error'
+                        : currentStage === stage.id 
+                          ? 'bg-primary/10 border-primary/30 text-primary' 
+                          : currentStage > stage.id || (stage.id === 4 && contact.status)
+                            ? 'bg-surface-container-high border-outline-variant/20 text-outline'
+                            : 'bg-surface-container-lowest border-outline-variant/5 text-outline/50'
                   } transition-all`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold uppercase tracking-wider">Etapa {stage.id}</span>
-                    {currentStage > stage.id && <span className="material-symbols-outlined text-[14px] text-secondary">check_circle</span>}
-                    {currentStage === stage.id && <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>}
+                    {(currentStage > stage.id || (stage.id === 4 && contact.status)) && <span className="material-symbols-outlined text-[14px] text-secondary">check_circle</span>}
+                    {currentStage === stage.id && !contact.status && <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>}
                   </div>
                   <p className="text-sm font-medium">{stage.name}</p>
                 </div>
               ))}
             </div>
+
+            {/* Formulario de Precio (Solo para Etapa 3) */}
+            {currentStage === 3 && (
+              <div className={`mb-6 border rounded-xl overflow-hidden p-6 shadow-inner relative transition-all duration-300 ${
+                !isEditingPrice && contact.price ? 'bg-black/20 border-primary/20' : 'bg-surface-container-lowest border-outline-variant/10'
+              }`}>
+                <div className={`absolute top-0 left-0 w-1 h-full transition-colors ${!isEditingPrice && contact.price ? 'bg-primary/40' : 'bg-primary'}`}></div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-[18px]">payments</span>
+                    Precio Proyectado de Negociación <span className="text-error">*</span>
+                  </label>
+                  {!isEditingPrice && contact.price && (
+                    <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-bold border border-primary/30 animate-in fade-in zoom-in duration-300">
+                      Precio Confirmado
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className={`absolute left-4 top-1/2 -translate-y-1/2 font-bold text-lg transition-colors ${!isEditingPrice && contact.price ? 'text-outline' : 'text-on-surface-variant'}`}>$</span>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={priceInput}
+                      readOnly={!isEditingPrice && contact.price ? true : false}
+                      onChange={(e) => {
+                        setPriceInput(e.target.value);
+                        if (e.target.value && Number(e.target.value) > 0) setPriceError('');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleSavePrice();
+                        }
+                      }}
+                      className={`w-full border rounded-xl py-3 pl-10 pr-4 text-base font-medium transition-all ${
+                        !isEditingPrice && contact.price 
+                          ? 'bg-transparent border-transparent text-outline cursor-default' 
+                          : `bg-surface-container border ${priceError ? 'border-error ring-1 ring-error' : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'} text-white`
+                      }`}
+                    />
+                  </div>
+                  {!isEditingPrice && contact.price ? (
+                    <button 
+                      onClick={() => setIsEditingPrice(true)}
+                      className="w-12 h-12 rounded-xl bg-surface-container-highest text-outline flex items-center justify-center hover:bg-surface-bright hover:text-white transition-all shrink-0 border border-outline-variant/20"
+                      title="Editar Precio"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">edit</span>
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={handleSavePrice}
+                      className="w-12 h-12 rounded-xl bg-primary text-on-primary flex items-center justify-center hover:bg-primary/90 transition-all shrink-0 shadow-lg shadow-primary/10"
+                      title="Confirmar Precio"
+                    >
+                      <span className="material-symbols-outlined">check_circle</span>
+                    </button>
+                  )}
+                </div>
+                
+                {priceError && <p className="text-error text-xs mt-2 flex items-center gap-1 font-medium"><span className="material-symbols-outlined text-[14px]">error</span>{priceError}</p>}
+                <p className="text-[11px] text-outline mt-3">
+                  {!isEditingPrice && contact.price 
+                    ? 'El precio está bloqueado. Haz clic en el lápiz para modificarlo.' 
+                    : 'Presiona Enter o el botón de check para confirmar el ingreso proyectado.'}
+                </p>
+              </div>
+            )}
 
             {/* Input Area (Only for active stage) */}
             <div className="mb-8 bg-surface-container-lowest border border-outline-variant/10 rounded-xl overflow-hidden focus-within:ring-1 focus-within:ring-primary/30 transition-all">

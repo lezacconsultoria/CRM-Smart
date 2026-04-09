@@ -29,7 +29,7 @@ export default function Sidebar({ currentView, onNavigate, onOpenNewContact, onL
             <span className="material-symbols-outlined text-on-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>architecture</span>
           </div>
           <div>
-            <h1 className="text-xl font-bold bg-gradient-to-br from-[#D2BBFF] to-[#A376FF] bg-clip-text text-transparent leading-none">CRM Cliente Smart</h1>
+            <h1 className="text-xl font-bold bg-gradient-to-br from-[#D2BBFF] to-[#A376FF] bg-clip-text text-transparent leading-none">CRM Smart</h1>
             <p className="text-[10px] uppercase tracking-[0.2em] text-outline mt-1 font-semibold">Strategic Intelligence</p>
           </div>
         </div>
