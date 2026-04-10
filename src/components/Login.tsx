@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
-import { nocoService } from '../services/nocoService';
+import { pbService } from '../services/pbService';
 
 interface LoginProps {
   onLogin: (user: User, rememberMe: boolean) => void;
@@ -14,17 +14,9 @@ export default function Login({ onLogin }: LoginProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [retryInfo, setRetryInfo] = useState(''); // e.g. "Reintentando (2/4)..."
 
-  // Pre-warm: try to establish the NocoDB connection in the background
-  // so it's often ready before the user even clicks the button
-  useEffect(() => {
-    nocoService.masterLogin().catch(() => {
-      // Silently ignore — it will retry when the user submits
-    });
-  }, []);
-
   const attemptLogin = async (attempt: number): Promise<User | null> => {
     try {
-      return await nocoService.loginUser(email, password);
+      return await pbService.loginUser(email, password);
     } catch (err: any) {
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'ERR_NETWORK' || err.message === 'Network Error';
       const MAX_ATTEMPTS = 4;
@@ -32,7 +24,7 @@ export default function Login({ onLogin }: LoginProps) {
         const delay = 800 * attempt; // 800ms, 1600ms, 2400ms...
         setRetryInfo(`Problema de red — Reintentando (${attempt}/${MAX_ATTEMPTS - 1})...`);
         await new Promise(res => setTimeout(res, delay));
-        nocoService.resetToken(); // Force a fresh token on every retry
+        pbService.resetToken(); // Force a fresh token on every retry
         return attemptLogin(attempt + 1);
       }
       throw err;
@@ -51,7 +43,7 @@ export default function Login({ onLogin }: LoginProps) {
       if (user) {
         onLogin(user, rememberMe);
       } else {
-        setError('Credenciales inválidas. Intente con: admin1@lezac.com, admin2@lezac.com o roberto@lezac.com');
+        setError('Email no registrado o credenciales inválidas.');
       }
     } catch (err: any) {
       console.error('Submit Login Error:', err);

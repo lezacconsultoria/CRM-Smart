@@ -2,7 +2,7 @@ import React, { useState, Suspense, lazy, useMemo, useEffect } from 'react';
 import Login from './components/Login';
 import Layout from './components/Layout';
 import { ContactData, User } from './types';
-import { nocoService } from './services/nocoService';
+import { pbService } from './services/pbService';
 
 // Lazy load components for code-splitting
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -38,6 +38,7 @@ export default function App() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [contactsToDelete, setContactsToDelete] = useState<ContactData[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Check local/session storage on mount and handle initial route
   useEffect(() => {
@@ -96,7 +97,7 @@ export default function App() {
         setIsLoadingContacts(true);
         setLoadError(null);
         try {
-          const result = await nocoService.getContacts();
+          const result = await pbService.getContacts();
           setContacts(result.list);
           setIsOffline(result.isCache);
           setLoadError(null);
@@ -104,7 +105,7 @@ export default function App() {
           console.error("Failed loading from DB", e);
           const isNetwork = e.message === 'ERR_NETWORK' || (e.message || '').includes('ERR_NETWORK');
           
-          // If nocoService threw, it means there was NO cache either
+          // If pbService threw, it means there was NO cache either
           setLoadError(isNetwork ? 'network' : 'unknown');
         } finally {
           setIsLoadingContacts(false);
@@ -129,7 +130,7 @@ export default function App() {
     try {
       if (contactData.id) {
         // Update contact
-        await nocoService.updateContact(contactData.id, contactData);
+        await pbService.updateContact(contactData.id, contactData);
         setContacts(prev => prev.map(c => c.id === contactData.id ? contactData : c));
         if (selectedContact?.id === contactData.id) {
           setSelectedContact(contactData);
@@ -137,7 +138,7 @@ export default function App() {
       } else {
         // Create new contact
         const assignedTo = currentUser?.name || 'admin';
-        const newContact = await nocoService.createContact({ ...contactData, assignedTo });
+        const newContact = await pbService.createContact({ ...contactData, assignedTo });
         setContacts(prev => [newContact, ...prev]);
       }
     } catch (e: any) {
@@ -164,17 +165,18 @@ export default function App() {
 
   const confirmDeleteContact = async () => {
     if (contactsToDelete.length === 0) return;
+    setIsDeleting(true);
     try {
       const ids = contactsToDelete.map(c => c.id!).filter(Boolean);
       
       if (ids.length === 1) {
-        await nocoService.deleteContact(ids[0]);
+        await pbService.deleteContact(ids[0]);
       } else {
-        await nocoService.deleteBulkContacts(ids);
+        await pbService.deleteBulkContacts(ids);
       }
 
-      setContactsToDelete([]);
       setContacts(prev => prev.filter(c => !ids.includes(c.id || '')));
+      setContactsToDelete([]);
       
       if (selectedContact && ids.includes(selectedContact.id || '')) {
         setSelectedContact(null);
@@ -182,28 +184,31 @@ export default function App() {
       }
       
       setIsDeleteModalOpen(false);
-    } catch (e: any) {
+    } catch (e: any) { 
       console.error("Error deleting contact", e);
-      alert("No se pudo eliminar el contacto.");
+      alert("No se pudo completar la eliminación. Por favor, reintenta.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleImportContacts = async (importedContacts: Partial<ContactData>[]) => {
+    // If importedContacts is empty, it means the modal already did the upload
+    // and we just need to refresh. Otherwise (future compatibility), we do it here.
     try {
-      // Modify assignedTo based on RBAC logic before bulk insert
-      const toInsert = importedContacts.map((c) => ({
-        ...c,
-        assignedTo: currentUser?.role === 'user' ? currentUser.name : (c.assignedTo || '')
-      }));
-
-      await nocoService.importBulkContacts(toInsert);
+      if (importedContacts.length > 0) {
+        const toInsert = importedContacts.map((c) => ({
+          ...c,
+          assignedTo: currentUser?.role === 'user' ? currentUser.name : (c.assignedTo || '')
+        }));
+        await pbService.importBulkContacts(toInsert);
+      }
       
-      // Reload contacts after import to make sure IDs match DB
-      const result = await nocoService.getContacts();
+      // Refresh list
+      const result = await pbService.getContacts();
       setContacts(result.list);
     } catch(e) {
-      console.error("Import failed", e);
-      alert("La importación masiva ha fallado..");
+      console.error("Refresh/Import failed", e);
     }
   };
 
@@ -283,7 +288,7 @@ export default function App() {
                 </p>
                 <button
                   onClick={() => {
-                    nocoService.resetToken();
+                    pbService.resetToken();
                     setRetryCount(c => c + 1);
                   }}
                   className="w-full py-4 rounded-2xl bg-primary text-on-primary-container font-bold text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
@@ -329,10 +334,11 @@ export default function App() {
         <ImportContactModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleImportContacts} />
         <DeleteConfirmModal 
         isOpen={isDeleteModalOpen} 
-        onClose={() => {setIsDeleteModalOpen(false); setContactsToDelete([]);}} 
+        onClose={() => { if (!isDeleting) { setIsDeleteModalOpen(false); setContactsToDelete([]); } }} 
         onConfirm={confirmDeleteContact}
         contactName={contactsToDelete.length === 1 ? `${contactsToDelete[0].firstName} ${contactsToDelete[0].lastName}` : undefined}
         count={contactsToDelete.length > 1 ? contactsToDelete.length : undefined}
+        isLoading={isDeleting}
       />
       </Suspense>
     </>

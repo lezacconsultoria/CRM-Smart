@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ContactData } from '../types';
 import * as XLSX from 'xlsx';
-import { nocoService } from '../services/nocoService';
+import { pbService } from '../services/pbService';
 
 interface ImportContactModalProps {
   isOpen: boolean;
@@ -14,9 +14,12 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
   const [pastedData, setPastedData] = useState('');
   const [importObservation, setImportObservation] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{current: number, total: number} | null>(null);
   const [duplicateEmails, setDuplicateEmails] = useState<string[]>([]);
   const [contactsToUpload, setContactsToUpload] = useState<Partial<ContactData>[]>([]);
   const [showDuplicateView, setShowDuplicateView] = useState(false);
+  const [parsedContacts, setParsedContacts] = useState<Partial<ContactData>[]>([]);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -25,6 +28,8 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
       setShowDuplicateView(false);
       setDuplicateEmails([]);
       setContactsToUpload([]);
+      setParsedContacts([]);
+      setSelectedFileName(null);
       setPastedData('');
       setImportObservation('');
       setIsProcessing(false);
@@ -92,23 +97,40 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
     };
 
     if (typeof data[0] === 'object' && !Array.isArray(data[0])) {
-      return data.map(item => {
-        const contact: Partial<ContactData> = {};
+      const contacts: Partial<ContactData>[] = [];
+      data.forEach(item => {
+        const baseContact: Partial<ContactData> = {};
+        let rawEmails: string[] = [];
+
         Object.keys(item).forEach(key => {
           const field = mapHeaderToField(key);
           if (field) {
             if (field === 'isEmailValid') {
-              contact.isEmailValid = String(item[key]) === '1' || String(item[key]).toLowerCase() === 'true';
+              baseContact.isEmailValid = String(item[key]) === '1' || String(item[key]).toLowerCase() === 'true';
+            } else if (field === 'email') {
+              const val = String(item[key] || '').trim();
+              if (val) {
+                // Split by common delimiters: /, ;, ,, or whitespace
+                rawEmails = val.split(/[\/\;, \t\n]+/).filter(e => e.includes('@'));
+              }
             } else if (field !== 'tasks' && field !== 'stages') {
-              let value = String(item[key]).trim();
-              if (field === 'email') value = value.toLowerCase();
-              (contact as any)[field] = value;
+              (baseContact as any)[field] = String(item[key] || '').trim();
             }
           }
-          handleSpecialFields(contact, key, item[key]);
+          handleSpecialFields(baseContact, key, item[key]);
         });
-        return applyObservation(contact);
-      }).filter(c => Object.keys(c).length > 0);
+
+        if (baseContact.isEmailValid === false) return;
+
+        if (rawEmails.length > 0) {
+          rawEmails.forEach(email => {
+            contacts.push(applyObservation({ ...baseContact, email: email.toLowerCase() }));
+          });
+        } else if (Object.keys(baseContact).length > 0) {
+          contacts.push(applyObservation(baseContact));
+        }
+      });
+      return contacts;
     }
 
     const headers = data[0].map((h: any) => String(h));
@@ -116,21 +138,36 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
 
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      const contact: Partial<ContactData> = {};
+      const baseContact: Partial<ContactData> = {};
+      let rawEmails: string[] = [];
+
       headers.forEach((header: string, idx: number) => {
         const field = mapHeaderToField(header);
-        if (field && row[idx]) {
-           if (field === 'isEmailValid') {
-              contact.isEmailValid = String(row[idx]) === '1' || String(row[idx]).toLowerCase() === 'true';
-            } else if (field !== 'tasks' && field !== 'stages') {
-              let value = String(row[idx]).trim();
-              if (field === 'email') value = value.toLowerCase();
-              (contact as any)[field] = value;
+        const val = row[idx];
+        if (field) {
+          if (field === 'isEmailValid') {
+            baseContact.isEmailValid = String(val) === '1' || String(val).toLowerCase() === 'true';
+          } else if (field === 'email') {
+            const emailVal = String(val || '').trim();
+            if (emailVal) {
+              rawEmails = emailVal.split(/[\/\;, \t\n]+/).filter(e => e.includes('@'));
             }
+          } else if (field !== 'tasks' && field !== 'stages') {
+            (baseContact as any)[field] = String(val || '').trim();
+          }
         }
-        handleSpecialFields(contact, header, row[idx]);
+        handleSpecialFields(baseContact, header, val);
       });
-      if (Object.keys(contact).length > 0) result.push(applyObservation(contact));
+
+      if (baseContact.isEmailValid === false) continue;
+
+      if (rawEmails.length > 0) {
+        rawEmails.forEach(email => {
+          result.push(applyObservation({ ...baseContact, email: email.toLowerCase() }));
+        });
+      } else if (Object.keys(baseContact).length > 0) {
+        result.push(applyObservation(baseContact));
+      }
     }
     return result;
   };
@@ -143,6 +180,7 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
 
   const parseFile = (file: File) => {
     setIsProcessing(true);
+    setSelectedFileName(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -154,13 +192,16 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
         
         const contacts = processData(jsonData);
         if (contacts.length > 0) {
-          handleDuplicateCheck(contacts);
+          // Just store the parsed contacts — do NOT upload yet
+          setParsedContacts(contacts);
         } else {
           alert("No se encontraron contactos válidos en el archivo. Verifica los encabezados.");
+          setSelectedFileName(null);
         }
       } catch (err) {
         console.error("Error parsing file", err);
         alert("Error al leer el archivo. Asegúrate de que sea un CSV o Excel válido.");
+        setSelectedFileName(null);
       } finally {
         setIsProcessing(false);
       }
@@ -182,7 +223,18 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
   };
 
   const handleImport = () => {
-    if (activeTab === 'paste' && !pastedData.trim()) {
+    // File tab: use pre-parsed contacts from file selection
+    if (activeTab === 'upload') {
+      if (parsedContacts.length === 0) {
+        alert("Por favor seleccioná un archivo primero.");
+        return;
+      }
+      handleDuplicateCheck(parsedContacts);
+      return;
+    }
+
+    // Paste tab
+    if (!pastedData.trim()) {
       alert("Por favor pega algunos datos primero.");
       return;
     }
@@ -191,21 +243,19 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
     
     setTimeout(() => {
       try {
-        if (activeTab === 'paste') {
-           const rows = pastedData.split('\n').filter(r => r.trim() !== '');
-           if (rows.length > 1) {
-             const separator = rows[0].includes('\t') ? '\t' : (rows[0].includes(',') ? ',' : ';');
-             const data = rows.map(row => row.split(separator).map(cell => cell.trim()));
-             const contacts = processData(data);
-             
-             if (contacts.length > 0) {
-               handleDuplicateCheck(contacts);
-               setPastedData('');
-               return;
-             }
-           }
-           alert("No se pudieron procesar los datos. Asegúrate de incluir encabezados (Nombre, Email, etc).");
+        const rows = pastedData.split('\n').filter(r => r.trim() !== '');
+        if (rows.length > 1) {
+          const separator = rows[0].includes('\t') ? '\t' : (rows[0].includes(',') ? ',' : ';');
+          const data = rows.map(row => row.split(separator).map(cell => cell.trim()));
+          const contacts = processData(data);
+          
+          if (contacts.length > 0) {
+            handleDuplicateCheck(contacts);
+            setPastedData('');
+            return;
+          }
         }
+        alert("No se pudieron procesar los datos. Asegúrate de incluir encabezados (Nombre, Email, etc).");
       } catch (e) {
         console.error("Parse Error", e);
         alert("Error al procesar los datos");
@@ -225,7 +275,7 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
         return;
       }
 
-      const existingEmails = await nocoService.findExistingEmails(allEmails);
+      const existingEmails = await pbService.findExistingEmails(allEmails);
       if (existingEmails.length > 0) {
         setDuplicateEmails(existingEmails);
         setContactsToUpload(contacts);
@@ -243,15 +293,34 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
     }
   };
 
-  const confirmUpload = () => {
+  const confirmUpload = async () => {
     const finalContacts = contactsToUpload.filter(c => {
       const normalizedEmail = (c.email || '').trim().toLowerCase();
       return !duplicateEmails.includes(normalizedEmail);
     });
+    
     if (finalContacts.length > 0) {
-      onImport(finalContacts);
+      setIsProcessing(true);
+      setUploadProgress({ current: 0, total: finalContacts.length });
+      
+      try {
+        await pbService.importBulkContacts(finalContacts, (count) => {
+          setUploadProgress({ current: count, total: finalContacts.length });
+        });
+        
+        // After successful upload, tell parent to refresh data
+        onImport([]); // We pass empty because we already uploaded them
+        onClose();
+      } catch (e) {
+        console.error("Upload Error", e);
+        alert("Error al subir los contactos. Algunos registros podrían no haberse guardado.");
+      } finally {
+        setIsProcessing(false);
+        setUploadProgress(null);
+      }
+    } else {
+      onClose();
     }
-    onClose();
   };
 
   return (
@@ -348,30 +417,50 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
               />
               
               {activeTab === 'upload' ? (
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) parseFile(file);
-                  }}
-                  className="border-2 border-dashed border-outline-variant/30 rounded-2xl bg-surface-container-highest/10 flex flex-col items-center justify-center p-12 text-center group hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer"
-                >
-                  <div className="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
-                    <span className="material-symbols-outlined text-3xl">upload_file</span>
+                parsedContacts.length > 0 ? (
+                  // File ready to import - show preview instead of dropzone
+                  <div className="border-2 border-primary/40 rounded-2xl bg-primary/5 flex flex-col items-center justify-center p-10 text-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center text-primary mb-4">
+                      <span className="material-symbols-outlined text-3xl">check_circle</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-1">Archivo listo para importar</h3>
+                    <p className="text-sm text-primary font-semibold mb-1">{selectedFileName}</p>
+                    <p className="text-sm text-on-surface-variant mb-6">
+                      Se detectaron <span className="text-white font-bold">{parsedContacts.length}</span> contactos válidos.
+                    </p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setParsedContacts([]); setSelectedFileName(null); if(fileInputRef.current) fileInputRef.current.value = ''; }}
+                      className="px-5 py-2 rounded-xl bg-surface-container-highest text-on-surface-variant font-bold text-sm tracking-wide border border-outline-variant/20 hover:text-white transition-colors"
+                    >
+                      Cambiar archivo
+                    </button>
                   </div>
-                  <h3 className="text-lg font-bold text-white mb-2">Arrastra tu archivo aquí</h3>
-                  <p className="text-sm text-on-surface-variant max-w-sm mb-6">
-                    Soportamos formatos .csv, .xls, y .xlsx. Asegúrate de que los encabezados coincidan con nuestra estructura.
-                  </p>
-                  <button 
-                    className="px-6 py-2 rounded-xl bg-surface-container-highest text-white font-bold text-sm tracking-wide border border-outline-variant/20 hover:bg-surface-container-highest/80"
+                ) : (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) parseFile(file);
+                    }}
+                    className="border-2 border-dashed border-outline-variant/30 rounded-2xl bg-surface-container-highest/10 flex flex-col items-center justify-center p-12 text-center group hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer"
                   >
-                    Explorar Archivos
-                  </button>
-                </div>
+                    <div className="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-3xl">upload_file</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Arrastra tu archivo aquí</h3>
+                    <p className="text-sm text-on-surface-variant max-w-sm mb-6">
+                      Soportamos formatos .csv, .xls, y .xlsx. Asegúrate de que los encabezados coincidan con nuestra estructura.
+                    </p>
+                    <button 
+                      className="px-6 py-2 rounded-xl bg-surface-container-highest text-white font-bold text-sm tracking-wide border border-outline-variant/20 hover:bg-surface-container-highest/80"
+                    >
+                      Explorar Archivos
+                    </button>
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col h-full min-h-[300px]">
                   <label className="text-xs font-bold text-outline uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -431,7 +520,7 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
                   {isProcessing ? (
                     <>
                       <span className="material-symbols-outlined animate-spin">refresh</span>
-                      Procesando...
+                      {uploadProgress ? `Subiendo ${uploadProgress.current} / ${uploadProgress.total}...` : 'Procesando...'}
                     </>
                   ) : (
                     <>

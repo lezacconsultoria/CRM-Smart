@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "pocketbase": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "ce9451357ca9b112e51ac3aa140ad7129c6711970534f334dcf75ccbc1493b85"
+    }
+  }
+}

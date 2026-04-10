@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ContactData, User } from '../types';
-import { nocoService } from '../services/nocoService';
+import { pbService } from '../services/pbService';
 
 interface NewContactModalProps {
   isOpen: boolean;
@@ -92,7 +92,7 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
     setIsCheckingEmail(true);
     setEmailError('');
     try {
-      const isDuplicate = await nocoService.isEmailDuplicate(formData.email, initialData?.id);
+      const isDuplicate = await pbService.isEmailDuplicate(formData.email, initialData?.id);
       if (isDuplicate) {
         setEmailError('Este email ya está registrado en la base de datos.');
         setIsCheckingEmail(false);
@@ -163,7 +163,7 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
     setIsCheckingEmail(true);
     setEmailError('');
     try {
-      const isDuplicate = await nocoService.isEmailDuplicate(formData.email, initialData?.id);
+      const isDuplicate = await pbService.isEmailDuplicate(formData.email, initialData?.id);
       if (isDuplicate) {
         setEmailError('Este email ya está registrado en la base de datos.');
       }

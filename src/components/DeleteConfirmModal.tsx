@@ -6,9 +6,10 @@ interface DeleteConfirmModalProps {
   onConfirm: () => void;
   contactName?: string;
   count?: number;
+  isLoading?: boolean;
 }
 
-export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, contactName, count }: DeleteConfirmModalProps) {
+export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, contactName, count, isLoading }: DeleteConfirmModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -45,10 +46,20 @@ export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, contact
               onClick={() => {
                 onConfirm();
               }}
-              className="w-full py-4 rounded-2xl bg-error text-white font-bold text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-error/20 flex items-center justify-center gap-2"
+              disabled={isLoading}
+              className="w-full py-4 rounded-2xl bg-error text-white font-bold text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-error/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className="material-symbols-outlined text-sm">delete_forever</span>
-              Sí, eliminar ahora
+              {isLoading ? (
+                <>
+                  <span className="material-symbols-outlined text-sm animate-spin">refresh</span>
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-sm">delete_forever</span>
+                  Sí, eliminar ahora
+                </>
+              )}
             </button>
             <button
               onClick={onClose}
