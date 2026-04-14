@@ -16,22 +16,42 @@ export interface Note {
   createdBy?: string;
 }
 
-export interface Task {
-  id: string;
-  title: string;
-  dueDate: string;
-  completed: boolean;
-  isOverdue?: boolean;
-  contactId?: string;
-  dueDateTimestamp?: number;
-  createdBy?: string;
-}
-
 export interface StageData {
   id: number;
   name: string;
   notes: Note[];
   price?: number;
+  budget?: number;            // Presupuesto (solo para Etapa 2 - Propuesta)
+  budgetDescription?: string; // Descripción del presupuesto
+}
+
+// Datos de competencia al cerrar un seguimiento
+export interface CompetitionData {
+  hadCompetition: boolean;       // ¿Hubo competidores?
+  competitors?: string;          // Nombre(s) de competidores (texto libre)
+  lossReason?: string;           // Motivo de pérdida si aplica
+  notes?: string;                // Notas adicionales sobre la competencia
+}
+
+// Un seguimiento completo (tracking) con su propia línea de tiempo
+export interface TrackingRecord {
+  id: string;
+  company: string;              // Empresa durante este seguimiento
+  jobTitle?: string;            // Cargo durante este seguimiento
+  startDate: string;            // Fecha de inicio
+  endDate?: string;             // Fecha de cierre (si archivado)
+  status: 'active' | 'won' | 'lost' | 'archived';
+  stages: StageData[];
+  price?: number;
+  competition?: CompetitionData;
+}
+
+// Relación entre contactos
+export interface ContactRelation {
+  contactId: string;          // ID del contacto relacionado
+  contactName: string;        // Nombre (cache para UI)
+  company: string;            // Empresa del contacto relacionado
+  relationType: string;       // "Jefe", "Colega", "Reporte directo", etc.
 }
 
 export interface ContactData {
@@ -56,6 +76,8 @@ export interface ContactData {
   assignedTo?: string;
   price?: number;
   status?: 'won' | 'lost' | 'active';
-  tasks?: Task[];
   stages?: StageData[];
+  competition?: CompetitionData;       // Datos de competencia del seguimiento activo
+  trackingHistory?: TrackingRecord[];  // Seguimientos anteriores archivados
+  relations?: ContactRelation[];       // Contactos vinculados
 }

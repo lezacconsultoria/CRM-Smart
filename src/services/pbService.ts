@@ -1,5 +1,5 @@
 import PocketBase from 'pocketbase';
-import { ContactData, Task, StageData, Note, User } from '../types';
+import { ContactData, StageData, Note, User, CompetitionData, TrackingRecord, ContactRelation } from '../types';
 
 const PB_URL = 'https://pb.lezacconsultoria.com';
 export const pb = new PocketBase(PB_URL);
@@ -7,7 +7,6 @@ export const pb = new PocketBase(PB_URL);
 // Local Cache Keys
 const CACHE_KEYS = {
   CONTACTS: 'crm_smart_cache_contacts',
-  TASKS: 'crm_smart_cache_tasks',
   USERS: 'crm_smart_cache_users'
 };
 
@@ -75,7 +74,6 @@ export const pbService = {
     try {
       const records = await pb.collection('contactos').getFullList({
         sort: '-fecha_importado, -id',
-        // Make sure we explicitly avoid -created if the coll doesn't have it natively enabled
       });
       
       const list = records.map((c) => this._mapContact(c));
@@ -104,6 +102,9 @@ export const pbService = {
     let parsedStages: any[] = [];
     let contactStatus: "active" | "won" | "lost" | undefined = undefined;
     let contactPrice: number | undefined = undefined;
+    let contactCompetition: CompetitionData | undefined = undefined;
+    let contactTrackingHistory: TrackingRecord[] = [];
+    let contactRelations: ContactRelation[] = [];
 
     if (c.stages_json) {
       try {
@@ -114,6 +115,9 @@ export const pbService = {
           parsedStages = parsed.stages;
           contactStatus = parsed.status;
           contactPrice = parsed.price;
+          contactCompetition = parsed.competition;
+          contactTrackingHistory = parsed.trackingHistory || [];
+          contactRelations = parsed.relations || [];
         }
       } catch (e) {
         parsedStages = [];
@@ -123,11 +127,6 @@ export const pbService = {
     const stage3 = parsedStages.find((s: any) => s.id === 3);
     if (contactPrice === undefined && stage3?.price !== undefined) {
       contactPrice = stage3.price;
-    }
-    
-    let parsedTasks = [];
-    if (c.tasks_json) {
-        try { parsedTasks = JSON.parse(c.tasks_json); } catch(e) {}
     }
 
     return {
@@ -151,8 +150,10 @@ export const pbService = {
       activity: c.actividad || '',
       externalId: c.ids_origen || '',
       isEmailValid: !!c.email_valido,
-      tasks: parsedTasks,
-      stages: parsedStages
+      stages: parsedStages,
+      competition: contactCompetition,
+      trackingHistory: contactTrackingHistory,
+      relations: contactRelations,
     };
   },
 
@@ -203,6 +204,16 @@ export const pbService = {
     return Array.from(new Set(duplicates));
   },
 
+  _buildStagesPayload(contact: Partial<ContactData>, stagesToSave: StageData[]) {
+    const stagesPayload: any = { stages: stagesToSave };
+    if (contact.status !== undefined) stagesPayload.status = contact.status;
+    if (contact.price !== undefined) stagesPayload.price = contact.price;
+    if (contact.competition !== undefined) stagesPayload.competition = contact.competition;
+    if (contact.trackingHistory !== undefined) stagesPayload.trackingHistory = contact.trackingHistory;
+    if (contact.relations !== undefined) stagesPayload.relations = contact.relations;
+    return stagesPayload;
+  },
+
   async createContact(contact: Partial<ContactData>): Promise<ContactData> {
     const defaultStages: any[] = [
       { id: 1, name: 'Descubrimiento', notes: [] },
@@ -218,12 +229,9 @@ export const pbService = {
        stagesToSave = stagesToSave.map(s => s.id === 3 ? s3! : s);
     }
 
-    const stagesPayload: any = { stages: stagesToSave };
-    if (contact.status !== undefined) stagesPayload.status = contact.status;
-    if (contact.price !== undefined) stagesPayload.price = contact.price;
+    const stagesPayload = this._buildStagesPayload(contact, stagesToSave);
 
-    const payload = {
-      fecha_importado: contact.importDate || new Date().toISOString().split('T')[0],
+    const payload: any = {
       nombre: contact.firstName || '',
       apellido: contact.lastName || '',
       empresa: contact.company || '',
@@ -239,7 +247,6 @@ export const pbService = {
       actividad: contact.activity || '',
       ids_origen: contact.externalId || '',
       email_valido: !!contact.isEmailValid,
-      tasks_json: JSON.stringify(contact.tasks || []),
       stages_json: JSON.stringify(stagesPayload),
       fecha_importado: new Date().toISOString()
     };
@@ -288,7 +295,6 @@ export const pbService = {
             actividad: c.activity || '',
             ids_origen: c.externalId || '',
             email_valido: !!c.isEmailValid,
-            tasks_json: JSON.stringify(c.tasks || []),
             stages_json: JSON.stringify(stagesPayload)
           };
 
@@ -324,7 +330,6 @@ export const pbService = {
     if (contact.isEmailValid !== undefined) payload.email_valido = contact.isEmailValid;
 
     if (contact.importDate) payload.fecha_importado = contact.importDate;
-    if (contact.tasks) payload.tasks_json = JSON.stringify(contact.tasks);
     if (contact.stages) {
       let stagesToSave = [...contact.stages];
       let s3 = stagesToSave.find((s: any) => s.id === 3);
@@ -332,10 +337,7 @@ export const pbService = {
          s3 = { ...s3, price: contact.price };
          stagesToSave = stagesToSave.map(s => s.id === 3 ? s3! : s);
       }
-      const stagesPayload: any = { stages: stagesToSave };
-      if (contact.status !== undefined) stagesPayload.status = contact.status;
-      if (contact.price !== undefined) stagesPayload.price = contact.price;
-      
+      const stagesPayload = this._buildStagesPayload(contact, stagesToSave);
       payload.stages_json = JSON.stringify(stagesPayload);
     }
     
@@ -376,4 +378,3 @@ export const pbService = {
     }
   }
 };
-

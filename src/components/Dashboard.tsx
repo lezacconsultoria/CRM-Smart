@@ -4,7 +4,7 @@ import {
   PieChart, Pie, Cell, Legend,
   LineChart, Line, Area, AreaChart
 } from 'recharts';
-import { ContactData, Task, Note, User } from '../types';
+import { ContactData, Note, User } from '../types';
 
 interface DashboardProps {
   onOpenNewContact?: () => void;
@@ -78,11 +78,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
   );
   const [dateTo, setDateTo] = useState<string>(today.toISOString().split('T')[0]);
 
-  // ── Extract tasks, reminders, activity ──
-  const allTasks = contacts.flatMap(c =>
-    (c.tasks || []).filter(t => canViewItem(t.createdBy)).map(t => ({ ...t, contactName: `${c.firstName} ${c.lastName}` }))
-  );
-  const pendingTasks = allTasks.filter(t => !t.completed);
+  // ── Extract reminders, activity ──
 
   const allReminders = contacts.flatMap(c =>
     (c.stages || []).flatMap(s =>
@@ -163,13 +159,6 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
   contacts.forEach(contact => {
-    contact.tasks?.forEach(task => {
-      if (!canViewItem(task.createdBy)) return;
-      if (!task.completed && task.dueDateTimestamp) {
-        if (task.dueDateTimestamp < todayStart.getTime()) vencidas++;
-        else if (task.dueDateTimestamp >= todayStart.getTime() && task.dueDateTimestamp < tomorrowStart.getTime()) activasHoy++;
-      }
-    });
     contact.stages?.forEach(stage => {
       stage.notes.forEach(note => {
         if (!canViewItem(note.createdBy)) return;
@@ -574,26 +563,28 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
         </div>
       </div>
 
-      {/* ── Bottom Grid: Tasks, Reminders & Activity ── */}
+      {/* ── Bottom Grid: Reminders & Activity ── */}
       <div className="grid grid-cols-12 gap-4 md:gap-8">
-        {/* Tareas Pendientes */}
+        {/* Próximos Recordatorios */}
         <div className="col-span-12 lg:col-span-4 bg-surface-container p-5 md:p-6 rounded-xl">
           <div className="flex items-center justify-between mb-6">
-            <h4 className="font-headline text-md font-bold">Tareas del Día</h4>
-            <span className="text-[10px] font-bold text-primary">{pendingTasks.length} Pendientes</span>
+            <h4 className="font-headline text-md font-bold">Recordatorios del Día</h4>
+            <span className="text-[10px] font-bold text-primary">{activasHoy} Hoy</span>
           </div>
           <div className="space-y-3">
-            {pendingTasks.length === 0 ? (
-              <p className="text-xs text-outline italic text-center py-4">No hay tareas pendientes</p>
+            {allReminders.length === 0 ? (
+              <p className="text-xs text-outline italic text-center py-4">No hay recordatorios pendientes</p>
             ) : (
-              pendingTasks.slice(0, 5).map(task => (
-                <div key={task.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-container-high group transition-all">
-                  <div className="mt-0.5 w-4 h-4 border-2 border-outline/30 rounded flex items-center justify-center group-hover:border-primary transition-colors"></div>
+              allReminders.slice(0, 5).map(reminder => (
+                <div key={reminder.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-container-high group transition-all">
+                  <div className="mt-0.5 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[12px] text-primary">alarm</span>
+                  </div>
                   <div className="flex-1">
-                    <p className="text-xs font-medium text-on-surface">{task.title}</p>
+                    <p className="text-xs font-medium text-on-surface line-clamp-1">{reminder.text}</p>
                     <p className="text-[10px] text-outline mt-1 flex justify-between">
-                      <span>{task.contactName}</span>
-                      <span className={task.isOverdue ? 'text-error font-bold' : ''}>{task.dueDate}</span>
+                      <span>{reminder.contactName}</span>
+                      <span className="text-primary font-bold">{reminder.reminderDate}</span>
                     </p>
                   </div>
                 </div>

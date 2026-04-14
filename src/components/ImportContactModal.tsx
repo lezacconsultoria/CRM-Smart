@@ -113,7 +113,7 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
                 // Split by common delimiters: /, ;, ,, or whitespace
                 rawEmails = val.split(/[\/\;, \t\n]+/).filter(e => e.includes('@'));
               }
-            } else if (field !== 'tasks' && field !== 'stages') {
+            } else if (field !== 'stages') {
               (baseContact as any)[field] = String(item[key] || '').trim();
             }
           }
@@ -152,7 +152,7 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
             if (emailVal) {
               rawEmails = emailVal.split(/[\/\;, \t\n]+/).filter(e => e.includes('@'));
             }
-          } else if (field !== 'tasks' && field !== 'stages') {
+          } else if (field !== 'stages') {
             (baseContact as any)[field] = String(val || '').trim();
           }
         }

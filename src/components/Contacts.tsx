@@ -42,14 +42,6 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
     let nextAction = null;
     let nextDate = Infinity;
 
-    // Check tasks
-    contact.tasks?.forEach(task => {
-      if (!task.completed && task.dueDateTimestamp && task.dueDateTimestamp < nextDate) {
-        nextDate = task.dueDateTimestamp;
-        nextAction = { type: 'task', title: task.title, date: task.dueDate, timestamp: task.dueDateTimestamp };
-      }
-    });
-
     // Check reminders
     contact.stages?.forEach(stage => {
       stage.notes.forEach(note => {

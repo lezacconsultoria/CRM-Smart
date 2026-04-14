@@ -320,7 +320,8 @@ export default function App() {
                   onEdit={() => selectedContact && handleEditContact(selectedContact)} 
                   onBack={() => handleNavigate('contacts')}
                   onUpdateContact={handleSaveContact} 
-                  user={currentUser} 
+                  user={currentUser}
+                  allContacts={contacts}
                 />
               )}
               {currentView === 'servicios' && <Servicios />}
