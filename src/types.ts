@@ -1,3 +1,13 @@
+export interface CompanyConfig {
+  id?: string;
+  name: string;
+  rubro: string;
+  tags: string[];
+  jobTitles: string[];
+  extraInfo?: string;
+  showBudget: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -79,5 +89,6 @@ export interface ContactData {
   stages?: StageData[];
   competition?: CompetitionData;       // Datos de competencia del seguimiento activo
   trackingHistory?: TrackingRecord[];  // Seguimientos anteriores archivados
+  additionalLinks?: string[];         // Links adicionales (LinkedIn, Portfolio, etc.)
   relations?: ContactRelation[];       // Contactos vinculados
 }

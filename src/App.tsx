@@ -13,6 +13,7 @@ const Plantillas = lazy(() => import('./components/Plantillas'));
 const NewContactModal = lazy(() => import('./components/NewContactModal'));
 const ImportContactModal = lazy(() => import('./components/ImportContactModal'));
 const DeleteConfirmModal = lazy(() => import('./components/DeleteConfirmModal'));
+const SettingsModal = lazy(() => import('./components/SettingsModal').then(module => ({ default: module.SettingsModal })));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -39,6 +40,7 @@ export default function App() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [contactsToDelete, setContactsToDelete] = useState<ContactData[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // Check local/session storage on mount and handle initial route
   useEffect(() => {
@@ -269,7 +271,14 @@ export default function App() {
           </button>
         </div>
       )}
-      <Layout currentView={currentView} onNavigate={handleNavigate} onOpenNewContact={handleOpenNewContact} onLogout={handleLogout} user={currentUser}>
+      <Layout 
+        currentView={currentView} 
+        onNavigate={handleNavigate} 
+        onOpenNewContact={handleOpenNewContact} 
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onLogout={handleLogout} 
+        user={currentUser}
+      >
         <Suspense fallback={<LoadingFallback />}>
           {isLoadingContacts && (currentView === 'contacts' || currentView === 'dashboard') ? (
             <LoadingFallback />
@@ -341,6 +350,7 @@ export default function App() {
         count={contactsToDelete.length > 1 ? contactsToDelete.length : undefined}
         isLoading={isDeleting}
       />
+        <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
       </Suspense>
     </>
   );

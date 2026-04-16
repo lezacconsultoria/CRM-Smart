@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ContactData, User } from '../types';
+import { ContactData, User, CompanyConfig } from '../types';
 import { pbService } from '../services/pbService';
 
 interface NewContactModalProps {
@@ -34,9 +34,21 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
   const [initialNote, setInitialNote] = useState('');
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [companyConfig, setCompanyConfig] = useState<CompanyConfig | null>(null);
 
   React.useEffect(() => {
     if (isOpen) {
+      // Fetch config for job titles
+      const fetchConfig = async () => {
+        try {
+          const config = await pbService.getConfig();
+          setCompanyConfig(config);
+        } catch (err) {
+          console.error('Error fetching config for job titles:', err);
+        }
+      };
+      fetchConfig();
+
       setInitialNote(''); // Clear on open
       setEmailError('');
       setIsCheckingEmail(false);
@@ -49,7 +61,8 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
             { id: 2, name: 'Propuesta', notes: [] },
             { id: 3, name: 'Negociación', notes: [] },
             { id: 4, name: 'Cierre', notes: [] },
-          ]
+          ],
+          additionalLinks: initialData.additionalLinks || []
         });
       } else {
         setFormData({
@@ -69,7 +82,8 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
             { id: 2, name: 'Propuesta', notes: [] },
             { id: 3, name: 'Negociación', notes: [] },
             { id: 4, name: 'Cierre', notes: [] },
-          ]
+          ],
+          additionalLinks: []
         });
       }
     }
@@ -143,11 +157,34 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
         { id: 2, name: 'Propuesta', notes: [] },
         { id: 3, name: 'Negociación', notes: [] },
         { id: 4, name: 'Cierre', notes: [] },
-      ]
+      ],
+      additionalLinks: []
     });
     setInitialNote('');
     setEmailError('');
     onClose();
+  };
+
+  const addLink = () => {
+    setFormData(prev => ({
+      ...prev,
+      additionalLinks: [...(prev.additionalLinks || []), '']
+    }));
+  };
+
+  const removeLink = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      additionalLinks: (prev.additionalLinks || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleLinkChange = (index: number, value: string) => {
+    setFormData(prev => {
+      const newLinks = [...(prev.additionalLinks || [])];
+      newLinks[index] = value;
+      return { ...prev, additionalLinks: newLinks };
+    });
   };
 
   const handleEmailBlur = async () => {
@@ -237,16 +274,49 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
                   placeholder="Ej. Acme Corp"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Cargo</label>
-                <input 
-                  type="text" 
-                  name="jobTitle"
-                  value={formData.jobTitle}
-                  onChange={handleChange}
-                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  placeholder="Ej. Director de Ventas"
-                />
+                {companyConfig?.jobTitles && companyConfig.jobTitles.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="relative flex-1">
+                      <select 
+                        name="jobTitle"
+                        value={formData.jobTitle === 'Otro' ? 'Otro' : (companyConfig.jobTitles.includes(formData.jobTitle) ? formData.jobTitle : (formData.jobTitle ? 'Otro' : ''))}
+                        onChange={(e) => handleChange({ target: { name: 'jobTitle', value: e.target.value === 'Otro' ? '' : e.target.value } } as any)}
+                        className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all appearance-none"
+                      >
+                        <option value="" disabled>Selecciona el cargo</option>
+                        {companyConfig.jobTitles.map(title => (
+                          <option key={title} value={title}>{title}</option>
+                        ))}
+                        <option value="Otro">Otro (Especifique)</option>
+                      </select>
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none text-[20px]">
+                        expand_more
+                      </span>
+                    </div>
+                    {(!companyConfig.jobTitles.includes(formData.jobTitle) && formData.jobTitle !== '') && (
+                      <input 
+                        type="text" 
+                        name="jobTitle"
+                        value={formData.jobTitle === 'Otro' ? '' : formData.jobTitle}
+                        onChange={handleChange}
+                        className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all animate-in slide-in-from-top-1"
+                        placeholder="Ingresa el cargo manualmente..."
+                        autoFocus
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <input 
+                    type="text" 
+                    name="jobTitle"
+                    value={formData.jobTitle}
+                    onChange={handleChange}
+                    className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="Ej. Director de Ventas"
+                  />
+                )}
               </div>
             </div>
 
@@ -297,7 +367,7 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-outline uppercase tracking-wider">Link de Perfil / Red Social</label>
-              <div className="relative">
+              <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <span className="material-symbols-outlined text-outline text-[18px]">open_in_new</span>
                 </div>
@@ -306,10 +376,44 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
                   name="profileLink"
                   value={formData.profileLink || ''}
                   onChange={handleChange}
-                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg pl-10 pr-12 py-2.5 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                   placeholder="https://www.linkedin.com/in/... o Instagram/Web"
                 />
+                <button
+                  type="button"
+                  onClick={addLink}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center text-outline hover:text-white hover:bg-white/10 transition-all opacity-0 group-hover:opacity-100"
+                  title="Agregar otro link"
+                >
+                  <span className="material-symbols-outlined text-[20px]">add</span>
+                </button>
               </div>
+              
+              {formData.additionalLinks && formData.additionalLinks.length > 0 && (
+                <div className="space-y-2 mt-2 ml-4 border-l-2 border-outline-variant/10 pl-4">
+                  {formData.additionalLinks.map((link, index) => (
+                    <div key={index} className="relative flex items-center animate-in slide-in-from-left-2 duration-200">
+                      <div className="absolute left-3 pointer-events-none">
+                        <span className="material-symbols-outlined text-outline text-[16px]">link</span>
+                      </div>
+                      <input 
+                        type="url" 
+                        value={link}
+                        onChange={(e) => handleLinkChange(index, e.target.value)}
+                        className="w-full bg-surface-container-highest border border-outline-variant/20 rounded-lg pl-9 pr-10 py-2 text-xs text-white focus:outline-none focus:border-primary transition-all"
+                        placeholder="Link adicional..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeLink(index)}
+                        className="absolute right-2 text-outline hover:text-error transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -7,11 +7,12 @@ interface LayoutProps {
   currentView: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas';
   onNavigate: (view: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas') => void;
   onOpenNewContact: () => void;
+  onOpenSettings: () => void;
   onLogout: () => void;
   user: User | null;
 }
 
-export default function Layout({ children, currentView, onNavigate, onOpenNewContact, onLogout, user }: LayoutProps) {
+export default function Layout({ children, currentView, onNavigate, onOpenNewContact, onOpenSettings, onLogout, user }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -40,6 +41,10 @@ export default function Layout({ children, currentView, onNavigate, onOpenNewCon
         }} 
         onOpenNewContact={() => {
           onOpenNewContact();
+          setIsMobileMenuOpen(false);
+        }}
+        onOpenSettings={() => {
+          onOpenSettings();
           setIsMobileMenuOpen(false);
         }}
         onLogout={onLogout}

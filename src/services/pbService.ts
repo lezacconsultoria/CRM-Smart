@@ -1,5 +1,5 @@
 import PocketBase from 'pocketbase';
-import { ContactData, StageData, Note, User, CompetitionData, TrackingRecord, ContactRelation } from '../types';
+import { ContactData, StageData, Note, User, CompetitionData, TrackingRecord, ContactRelation, CompanyConfig } from '../types';
 
 const PB_URL = 'https://pb.lezacconsultoria.com';
 export const pb = new PocketBase(PB_URL);
@@ -105,6 +105,7 @@ export const pbService = {
     let contactCompetition: CompetitionData | undefined = undefined;
     let contactTrackingHistory: TrackingRecord[] = [];
     let contactRelations: ContactRelation[] = [];
+    let contactAdditionalLinks: string[] = [];
 
     if (c.stages_json) {
       try {
@@ -118,6 +119,7 @@ export const pbService = {
           contactCompetition = parsed.competition;
           contactTrackingHistory = parsed.trackingHistory || [];
           contactRelations = parsed.relations || [];
+          contactAdditionalLinks = parsed.additionalLinks || [];
         }
       } catch (e) {
         parsedStages = [];
@@ -154,6 +156,7 @@ export const pbService = {
       competition: contactCompetition,
       trackingHistory: contactTrackingHistory,
       relations: contactRelations,
+      additionalLinks: contactAdditionalLinks,
     };
   },
 
@@ -211,6 +214,7 @@ export const pbService = {
     if (contact.competition !== undefined) stagesPayload.competition = contact.competition;
     if (contact.trackingHistory !== undefined) stagesPayload.trackingHistory = contact.trackingHistory;
     if (contact.relations !== undefined) stagesPayload.relations = contact.relations;
+    if (contact.additionalLinks !== undefined) stagesPayload.additionalLinks = contact.additionalLinks;
     return stagesPayload;
   },
 
@@ -375,6 +379,54 @@ export const pbService = {
     if (errors.length > 0 && errors.length === ids.length) {
       // Only throw if EVERY single deletion failed
       throw new Error("Batch requests are disabled on this server and individual deletions failed.");
+    }
+  },
+
+  // Configuration
+  async getConfig(): Promise<CompanyConfig | null> {
+    try {
+      const records = await pb.collection('configuracion').getFullList({
+        $autoCancel: false
+      });
+      if (records.length > 0) {
+        // Sort locally to avoid 400 Bad Request if -created is not indexed/allowed
+        const r = records.sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime())[0];
+        
+        return {
+          id: r.id,
+          name: r.name,
+          rubro: r.rubro,
+          tags: r.tags || [],
+          jobTitles: r.jobTitles || [],
+          extraInfo: r.extraInfo,
+          showBudget: r.showBudget !== undefined ? r.showBudget : true
+        };
+      }
+      return null;
+    } catch (e) {
+      console.error('Error fetching config', e);
+      return null;
+    }
+  },
+
+  async updateConfig(config: CompanyConfig): Promise<void> {
+    try {
+      const payload = {
+        name: config.name,
+        rubro: config.rubro,
+        tags: config.tags,
+        jobTitles: config.jobTitles,
+        extraInfo: config.extraInfo,
+        showBudget: config.showBudget
+      };
+      if (config.id) {
+        await pb.collection('configuracion').update(config.id, payload);
+      } else {
+        await pb.collection('configuracion').create(payload);
+      }
+    } catch (e) {
+      console.error('Error updating config', e);
+      throw e;
     }
   }
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ContactData, Note, StageData, User, CompetitionData, TrackingRecord, ContactRelation } from '../types';
+import { ContactData, Note, StageData, User, CompetitionData, TrackingRecord, ContactRelation, CompanyConfig } from '../types';
+import { pbService } from '../services/pbService';
 
 interface ContactDetailsProps {
   contact: ContactData | null;
@@ -74,13 +75,31 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
   // Expanded tracking history
   const [expandedTracking, setExpandedTracking] = useState<string | null>(null);
 
+  const [companyConfig, setCompanyConfig] = useState<CompanyConfig | null>(null);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const config = await pbService.getConfig();
+        if (config) {
+          setCompanyConfig(config);
+        }
+      } catch (error) {
+        console.error('Error fetching config:', error);
+      }
+    };
+    fetchConfig();
+  }, []);
+
   const canViewItem = (createdBy?: string) => {
     if (!user) return true;
     if (user.role === 'admin') return true;
     return !createdBy || createdBy === user.name;
   };
 
-  const NOTE_TAGS = ['Llamada', 'Reunión', 'Email', 'Seguimiento', 'Importante'];
+  const NOTE_TAGS = companyConfig?.tags && companyConfig.tags.length > 0 
+    ? companyConfig.tags 
+    : ['Llamada', 'Reunión', 'Email', 'Seguimiento', 'Importante'];
 
   useEffect(() => {
     if (contact) {
@@ -378,112 +397,47 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
         </div>
       </div>
 
-      {/* Executive Header Block */}
-      <section className="mb-8 md:mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div className="flex flex-col md:flex-row items-start justify-between gap-6 md:gap-8">
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center w-full md:w-auto">
-            <div className="relative shrink-0">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl shadow-2xl bg-surface-container-highest flex items-center justify-center text-primary border border-outline-variant/20">
-                <span className="material-symbols-outlined text-4xl md:text-5xl">person</span>
+      {/* Executive Header Block - Refined & Minimal */}
+      <section className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
+          <div className="flex flex-col md:flex-row gap-6 items-center md:items-end w-full">
+            <div className="relative shrink-0 group">
+              <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl shadow-2xl bg-gradient-to-br from-surface-container-highest to-surface-container flex items-center justify-center text-primary border border-outline-variant/20 group-hover:border-primary/40 transition-all duration-500">
+                <span className="material-symbols-outlined text-5xl md:text-6xl group-hover:scale-110 transition-transform duration-500">person</span>
               </div>
-              <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center border-4 border-surface shadow-lg" title="Salud del Lead: Alta">
-                <span className="material-symbols-outlined text-[16px] text-on-secondary-container" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+              <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-2xl bg-primary text-on-primary flex items-center justify-center border-4 border-surface shadow-xl" title="Salud del Lead: Alta">
+                <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
               </div>
             </div>
-            <div className="w-full min-w-0">
-              <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1">
-                <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white font-headline truncate">{contact.firstName} {contact.lastName}</h2>
-                <span className="px-3 py-0.5 bg-secondary-container/10 text-secondary-container text-[10px] font-bold uppercase tracking-widest rounded-full border border-secondary-container/20 whitespace-nowrap">
-                  {contact.status === 'won' ? 'Cliente' : contact.status === 'lost' ? 'Perdido' : 'Lead'}
-                </span>
-                {contact.isEmailValid && (
-                  <span className="px-3 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-widest rounded-full border border-green-500/20 whitespace-nowrap flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[12px]">verified</span>
-                    Email Válido
+            <div className="flex-1 text-center md:text-left">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-2">
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white font-headline">
+                  {contact.firstName} {contact.lastName}
+                </h1>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border ${
+                    contact.status === 'won' ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                    : contact.status === 'lost' ? 'bg-error/10 text-error border-error/20' 
+                    : 'bg-primary/10 text-primary border-primary/20'
+                  }`}>
+                    {contact.status === 'won' ? 'Cliente' : contact.status === 'lost' ? 'Perdido' : 'Lead Activo'}
                   </span>
-                )}
+                </div>
               </div>
-              <p className="text-on-surface-variant font-medium mb-3 text-sm md:text-base truncate">
-                {contact.jobTitle || 'Sin cargo'} @ {contact.company}
-                {contact.companyType && (
-                  <span className="ml-2 px-2 py-0.5 bg-outline-variant/10 text-outline text-[9px] font-bold uppercase rounded border border-outline-variant/20 italic">
-                    {contact.companyType}
-                  </span>
-                )}
+              <p className="text-xl text-outline font-medium max-w-2xl">
+                {contact.jobTitle || 'Especialista'} en <span className="text-white font-bold">{contact.company}</span>
               </p>
-              <div className="flex flex-wrap items-center gap-4 md:gap-6">
-                <div className="flex items-center gap-2 text-outline">
-                  <span className="material-symbols-outlined text-sm shrink-0">mail</span>
-                  <span className="text-xs truncate">{contact.email}</span>
-                </div>
-                {contact.phone && (
-                  <div className="flex items-center gap-2 text-outline">
-                    <span className="material-symbols-outlined text-sm shrink-0">phone</span>
-                    <span className="text-xs whitespace-nowrap">{contact.countryCode} {contact.phone}</span>
-                  </div>
-                )}
-                {(contact.province || contact.country) && (
-                  <div className="flex items-center gap-2 text-outline">
-                    <span className="material-symbols-outlined text-sm shrink-0">location_on</span>
-                    <span className="text-xs truncate">
-                      {contact.province}{contact.province && contact.country ? ', ' : ''}{contact.country}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-outline">
-                    <span className="material-symbols-outlined text-sm shrink-0">
-                      {contact.source === 'linkedin' ? 'link' : contact.source === 'whatsapp' ? 'chat' : 'mail'}
-                    </span>
-                    <span className="text-xs capitalize">{contact.source || 'Directo'}</span>
-                  </div>
-                  {contact.profileLink && (
-                    <a 
-                      href={contact.profileLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary hover:bg-primary/20 rounded-md border border-primary/20 transition-all group"
-                      title="Ver perfil o red social"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-                      <span className="text-[10px] font-bold group-hover:underline">Ver Perfil</span>
-                    </a>
-                  )}
-                </div>
-                {contact.activity && (
-                  <div className="flex items-center gap-2 text-outline bg-surface-container-high/50 px-2.5 py-1 rounded-md border border-outline-variant/10">
-                    <span className="material-symbols-outlined text-[14px] text-primary">work</span>
-                    <span className="text-[11px] font-medium">{contact.activity}</span>
-                  </div>
-                )}
-                {contact.dbSource && (
-                  <div className="flex items-center gap-2 text-outline bg-surface-container-high/50 px-2.5 py-1 rounded-md border border-outline-variant/10">
-                    <span className="material-symbols-outlined text-[14px] text-secondary">database</span>
-                    <span className="text-[11px] font-medium">{contact.dbSource}</span>
-                  </div>
-                )}
-                {contact.externalId && (
-                  <div className="flex items-center gap-2 text-outline/50 px-2.5 py-1">
-                    <span className="text-[10px] font-mono">ID: {contact.externalId}</span>
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
-          
-          <div className="flex items-stretch gap-3 w-full md:w-auto mt-2 md:mt-0">
-            <div className="bg-surface-container-low px-4 md:px-5 py-2 rounded-xl border border-outline-variant/10 flex flex-col justify-center flex-1 md:flex-none">
-              <div className="text-center">
-                <p className="text-[10px] text-outline uppercase font-bold tracking-tighter">Última Interacción</p>
-                <p className="text-base md:text-lg font-extrabold text-white leading-tight">Ayer</p>
-              </div>
+            
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={onEdit}
+                className="px-6 py-3 bg-white text-black rounded-2xl text-sm font-black hover:bg-primary hover:text-on-primary transition-all shadow-xl shadow-white/5 flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[18px]">edit</span>
+                Editar Perfil
+              </button>
             </div>
-            <button 
-              onClick={onEdit}
-              className="px-4 md:px-5 py-2 bg-surface-container-high text-on-surface-variant rounded-xl border border-outline-variant/10 text-sm font-semibold hover:bg-surface-bright transition-all flex items-center justify-center flex-1 md:flex-none"
-            >
-              Editar Ficha
-            </button>
           </div>
         </div>
       </section>
@@ -595,7 +549,7 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
             </div>
 
             {/* Budget Form (Stage 2 only) */}
-            {currentStage === 2 && (
+            {companyConfig?.showBudget !== false && currentStage === 2 && (
               <div className={`mb-6 border rounded-xl overflow-hidden p-5 relative transition-all duration-300 ${
                 !isEditingBudget && stages.find(s => s.id === 2)?.budget ? 'bg-black/20 border-secondary/20' : 'bg-surface-container-lowest border-outline-variant/10'
               }`}>
@@ -1089,92 +1043,233 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
         </div>
 
         {/* Right Column: Sidebar */}
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-          {/* Calendar Widget */}
+        {/* Right Column: Sidebar (Sticky) */}
+        <div className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-8 self-start">
+          {/* Quick Contact Info Card */}
+          <div className="bg-surface-container-high rounded-3xl p-6 border border-outline-variant/10 shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-primary/10 transition-colors" />
+            
+            <h3 className="text-xs font-black text-outline uppercase tracking-widest mb-6 flex items-center gap-2">
+              <span className="w-1 h-3 bg-primary rounded-full"></span>
+              Detalles del Contacto
+            </h3>
+
+            <div className="space-y-5">
+              {/* Email */}
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-outline shrink-0">
+                  <span className="material-symbols-outlined text-lg">mail</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-0.5">Email</p>
+                  <p className="text-sm text-white font-medium truncate">{contact.email}</p>
+                </div>
+                {contact.isEmailValid && (
+                  <span className="material-symbols-outlined text-green-500 text-sm" title="Verificado">verified</span>
+                )}
+              </div>
+
+              {/* Phone */}
+              {contact.phone && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-outline shrink-0">
+                    <span className="material-symbols-outlined text-lg">phone</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-0.5">Celular</p>
+                    <p className="text-sm text-white font-medium">{contact.countryCode} {contact.phone}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Location */}
+              {(contact.province || contact.country) && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-outline shrink-0">
+                    <span className="material-symbols-outlined text-lg">location_on</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-0.5">Ubicación</p>
+                    <p className="text-sm text-white font-medium truncate">
+                      {contact.province}{contact.province && contact.country ? ', ' : ''}{contact.country}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Company Data */}
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-outline shrink-0">
+                  <span className="material-symbols-outlined text-lg">business</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-0.5">Empresa</p>
+                  <p className="text-sm text-white font-medium truncate">{contact.company}</p>
+                  {contact.companyType && (
+                    <span className="text-[9px] text-outline font-medium italic">{contact.companyType}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Actions Grid */}
+              <div className="grid grid-cols-3 gap-3 pt-4 border-t border-outline-variant/10">
+                <a 
+                  href={`https://wa.me/${(contact.countryCode || '54').replace('+', '')}${contact.phone?.replace(/\s/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-[#25D366]/5 hover:bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 transition-all group"
+                >
+                  <span className="material-symbols-outlined text-xl group-hover:scale-125 transition-transform">chat</span>
+                  <span className="text-[9px] font-black uppercase">WhatsApp</span>
+                </a>
+                <a 
+                  href={`mailto:${contact.email}`}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 transition-all group"
+                >
+                  <span className="material-symbols-outlined text-xl group-hover:scale-125 transition-transform">alternate_email</span>
+                  <span className="text-[9px] font-black uppercase">Email</span>
+                </a>
+                <a 
+                  href={`tel:${contact.countryCode}${contact.phone}`}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-secondary/5 hover:bg-secondary/10 text-secondary border border-secondary/20 transition-all group"
+                >
+                  <span className="material-symbols-outlined text-xl group-hover:scale-125 transition-transform">call</span>
+                  <span className="text-[9px] font-black uppercase">Llamar</span>
+                </a>
+              </div>
+            </div>
+
+            {/* LinkedIn / Profile Link if exists */}
+            {contact.profileLink && (
+              <a 
+                href={contact.profileLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-surface-container-highest text-white text-xs font-bold border border-outline-variant/10 hover:border-primary/40 transition-all group"
+              >
+                <span className="material-symbols-outlined text-sm">link</span>
+                Ver Perfil Profesional
+              </a>
+            )}
+
+            {/* Additional Links */}
+            {contact.additionalLinks && contact.additionalLinks.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                {contact.additionalLinks.filter(l => l.trim()).map((link, idx) => (
+                  <a 
+                    key={idx}
+                    href={link.startsWith('http') ? link : `https://${link}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-white/5 text-outline text-[10px] font-bold border border-outline-variant/5 hover:border-white/20 hover:text-white transition-all group"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">link</span>
+                    Link Adicional {idx + 1}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Compact Timeline Widget */}
           <div className="bg-surface-container-high rounded-2xl p-5 border border-outline-variant/10">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-lg">calendar_month</span>
-                Calendario
+                <span className="material-symbols-outlined text-primary text-lg">schedule</span>
+                Próximos Eventos
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button 
-                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
-                  className="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-bright text-outline"
+                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 7))}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-surface-bright text-outline transition-colors"
                 >
                   <span className="material-symbols-outlined text-sm">chevron_left</span>
                 </button>
-                <span className="text-xs font-bold text-white capitalize w-24 text-center">
-                  {currentDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-                </span>
                 <button 
-                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
-                  className="w-6 h-6 rounded flex items-center justify-center hover:bg-surface-bright text-outline"
+                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 7))}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-surface-bright text-outline transition-colors"
                 >
                   <span className="material-symbols-outlined text-sm">chevron_right</span>
                 </button>
               </div>
             </div>
             
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
-                <div key={day} className="text-[10px] font-bold text-outline text-center uppercase">
-                  {day}
-                </div>
-              ))}
-            </div>
-            
-            <div className="grid grid-cols-7 gap-1 justify-items-center">
-              {Array.from({ length: getFirstDayOfMonth(currentDate.getFullYear(), currentDate.getMonth()) }).map((_, i) => (
-                <div key={`empty-${i}`} className="h-8"></div>
-              ))}
-              
-              {Array.from({ length: getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth()) }).map((_, i) => {
-                const day = i + 1;
-                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+            <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1">
+              {Array.from({ length: 14 }).map((_, i) => {
+                const date = new Date(currentDate);
+                date.setDate(currentDate.getDate() - 3 + i);
                 const isToday = new Date().toDateString() === date.toDateString();
+                const dayName = date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '');
+                const dayNum = date.getDate();
                 
-                const dayEvents: { title: string }[] = [];
-                stages.forEach(stage => {
-                  stage.notes.forEach(note => {
-                    if (!canViewItem(note.createdBy)) return;
-                    if (note.reminderTimestamp && new Date(note.reminderTimestamp).toDateString() === date.toDateString()) {
-                      dayEvents.push({ title: `Recordatorio: Etapa ${stage.id}` });
-                    }
-                  });
-                });
-                
-                const hasReminder = dayEvents.length > 0;
-                
-                let dayClasses = "h-8 w-8 flex items-center justify-center rounded-full text-xs relative cursor-pointer transition-all duration-300 ";
-
-                if (isToday) {
-                  dayClasses += "bg-white text-black font-bold shadow-lg shadow-white/10 scale-110 z-10 ";
-                } else if (hasReminder) {
-                  dayClasses += "bg-secondary/40 text-secondary border border-secondary/30 font-bold ";
-                } else {
-                  dayClasses += "hover:bg-surface-bright text-on-surface ";
-                }
+                const hasReminder = stages.some(stage => 
+                  stage.notes.some(note => 
+                    canViewItem(note.createdBy) && 
+                    note.reminderTimestamp && 
+                    new Date(note.reminderTimestamp).toDateString() === date.toDateString()
+                  )
+                );
 
                 return (
                   <div 
-                    key={day} 
-                    className={dayClasses}
-                    title={dayEvents.map(e => e.title).join('\n')}
+                    key={i}
+                    className={`flex flex-col items-center justify-center min-w-[42px] h-16 rounded-xl border transition-all duration-300 ${
+                      isToday 
+                        ? 'bg-white border-white text-black shadow-lg scale-105 z-10' 
+                        : hasReminder
+                          ? 'bg-primary/10 border-primary/30 text-primary'
+                          : 'bg-surface-container border-outline-variant/5 text-outline hover:border-outline-variant/30'
+                    }`}
                   >
-                    {day}
+                    <span className={`text-[9px] font-bold uppercase mb-1 ${isToday ? 'text-black/60' : 'text-outline'}`}>
+                      {dayName}
+                    </span>
+                    <span className="text-sm font-black">
+                      {dayNum}
+                    </span>
+                    {hasReminder && !isToday && (
+                      <div className="mt-1 w-1 h-1 rounded-full bg-primary animate-pulse" />
+                    )}
                   </div>
                 );
               })}
             </div>
-            
-            <div className="mt-5 pt-3 border-t border-outline-variant/10 flex items-center gap-4 justify-center">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-secondary/40 border border-secondary/30"></div>
-                <span className="text-[10px] text-outline font-medium">Recordatorios</span>
-              </div>
+
+            {/* List of upcoming reminders for the selected range */}
+            <div className="mt-4 space-y-3">
+              {(() => {
+                const upcomingReminders = [];
+                stages.forEach(stage => {
+                  stage.notes.forEach(note => {
+                    if (note.reminderTimestamp && canViewItem(note.createdBy)) {
+                      const rDate = new Date(note.reminderTimestamp);
+                      if (rDate >= new Date(new Date().setHours(0,0,0,0))) {
+                        upcomingReminders.push({ ...note, stageId: stage.id, dateObj: rDate });
+                      }
+                    }
+                  });
+                });
+                
+                upcomingReminders.sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+                
+                if (upcomingReminders.length === 0) {
+                  return <p className="text-[10px] text-outline text-center py-2">No hay recordatorios próximos</p>;
+                }
+
+                return upcomingReminders.slice(0, 3).map((rem, idx) => (
+                  <div key={idx} className="flex gap-3 items-center group">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 group-hover:scale-150 transition-transform" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-white truncate">{rem.text.substring(0, 40)}...</p>
+                      <p className="text-[9px] text-outline">
+                        {rem.dateObj.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · Etapa {rem.stageId}
+                      </p>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
+
 
           {/* Contact Relations */}
           <div className="bg-surface-container-high rounded-2xl p-5 border border-outline-variant/10">

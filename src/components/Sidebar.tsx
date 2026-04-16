@@ -5,12 +5,13 @@ interface SidebarProps {
   currentView: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas';
   onNavigate: (view: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas') => void;
   onOpenNewContact: () => void;
+  onOpenSettings: () => void;
   onLogout: () => void;
   isOpen?: boolean;
   user: User | null;
 }
 
-export default function Sidebar({ currentView, onNavigate, onOpenNewContact, onLogout, isOpen = false, user }: SidebarProps) {
+export default function Sidebar({ currentView, onNavigate, onOpenNewContact, onOpenSettings, onLogout, isOpen = false, user }: SidebarProps) {
   // Get initials from user name
   const getInitials = (name: string) => {
     return name
@@ -89,6 +90,14 @@ export default function Sidebar({ currentView, onNavigate, onOpenNewContact, onL
           >
             <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: currentView === 'plantillas' ? "'FILL' 1" : "'FILL' 0" }}>description</span>
             <span className="text-sm">Plantillas</span>
+          </button>
+
+          <button 
+            onClick={onOpenSettings}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group text-[#958E9F] hover:text-[#CCC3D6] hover:bg-[#201F20]`}
+          >
+            <span className="material-symbols-outlined text-[20px]">settings</span>
+            <span className="text-sm">Configuración</span>
           </button>
         </nav>
       </div>
