@@ -4,8 +4,8 @@ import { User } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentView: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas';
-  onNavigate: (view: 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas') => void;
+  currentView: 'dashboard' | 'contacts' | 'contact-details' | 'pipeline' | 'actividades';
+  onNavigate: (view: 'dashboard' | 'contacts' | 'contact-details' | 'pipeline' | 'actividades') => void;
   onOpenNewContact: () => void;
   onOpenSettings: () => void;
   onLogout: () => void;

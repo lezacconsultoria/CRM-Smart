@@ -175,24 +175,23 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
             <span className="text-primary-fixed-dim">Gestión de Contactos</span>
           </nav>
           <h2 className="text-4xl font-extrabold font-headline tracking-tight text-white mb-2">Base Viva de Contactos</h2>
-          <p className="text-on-surface-variant max-w-lg leading-relaxed">Gestione la inteligencia relacional de su firma. Filtrado avanzado para detección de oportunidades y seguimiento estratégico.</p>
         </div>
         
-        <div className="flex flex-wrap gap-4 w-full md:w-auto">
-          <div className="bg-surface-container-low p-4 md:p-5 rounded-xl border border-outline-variant/10 flex-1 md:min-w-[160px]">
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          <div className="bg-surface-container-low px-5 py-3 rounded-lg border border-outline-variant/10 flex flex-col justify-center min-w-[140px]">
             <p className="text-[10px] uppercase tracking-wider text-outline mb-1">Total Contactos</p>
-            <p className="text-2xl font-bold font-headline">{contacts.length}</p>
-            <div className="mt-2 flex items-center gap-1 text-secondary text-[11px]">
-              <span className="material-symbols-outlined text-[14px]">trending_up</span>
-              <span>+12% este mes</span>
+            <div className="flex items-baseline gap-2">
+              <p className="text-2xl font-bold font-headline leading-none text-white">{contacts.length}</p>
+              <span className="text-[10px] text-secondary font-medium tracking-wide">ACTIVOS</span>
             </div>
           </div>
-          <div className="bg-surface-container-low p-4 md:p-5 rounded-xl border border-outline-variant/10 flex-1 md:min-w-[160px]">
+          <div className="bg-surface-container-low px-5 py-3 rounded-lg border border-outline-variant/10 flex flex-col justify-center min-w-[140px]">
             <p className="text-[10px] uppercase tracking-wider text-outline mb-1">Tasa Conversión</p>
-            <p className="text-2xl font-bold font-headline">24.8%</p>
-            <div className="mt-2 flex items-center gap-1 text-primary text-[11px]">
-              <span className="material-symbols-outlined text-[14px]">target</span>
-              <span>Objetivo Q3</span>
+            <div className="flex items-baseline gap-2">
+              <p className="text-2xl font-bold font-headline leading-none text-primary">
+                {contacts.length > 0 ? ((contacts.filter(c => c.status === 'won').length / contacts.length) * 100).toFixed(1) : '0'}%
+              </p>
+              <span className="text-[10px] text-primary/70 font-medium tracking-wide">ÉXITO</span>
             </div>
           </div>
         </div>
@@ -422,7 +421,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface-container-high/50 border-b border-outline-variant/10">
+              <tr className="bg-surface-container-high border-b border-outline-variant/15">
                 <th className="px-4 py-3 w-10 text-center">
                   <div 
                     onClick={(e) => { e.stopPropagation(); toggleSelectAll(); }}
@@ -455,7 +454,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
               {paginatedContacts.map((contact) => (
                 <tr 
                   key={contact.id}
-                  className={`hover:bg-surface-container-highest/30 transition-colors group cursor-pointer ${selectedIds.has(contact.id!) ? 'bg-primary/5' : ''}`}
+                  className={`hover:bg-surface-container-highest/40 transition-colors duration-150 group cursor-pointer ${selectedIds.has(contact.id!) ? 'bg-primary/5' : ''}`}
                   onClick={() => onSelectContact && onSelectContact(contact)}
                 >
                   <td className="px-4 py-3 text-center">

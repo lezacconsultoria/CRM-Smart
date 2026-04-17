@@ -21,6 +21,31 @@ const getFirstDayOfMonth = (year: number, month: number) => {
 
 const RELATION_TYPES = ['Jefe', 'Colega', 'Subordinado', 'Mismo equipo', 'Socio', 'Referencia', 'Otro'];
 
+// ─── Helpers for Currency Input ───
+const formatToArgentineCurrency = (value: string) => {
+  let raw = value.replace(/[^\d,]/g, '');
+  const commaIndex = raw.indexOf(',');
+  if (commaIndex !== -1) {
+    raw = raw.slice(0, commaIndex + 1) + raw.slice(commaIndex + 1).replace(/,/g, '');
+  }
+  const parts = raw.split(',');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return parts.join(',');
+};
+
+const formatInitialCurrency = (val?: number | null) => {
+  if (val === undefined || val === null || isNaN(val)) return '';
+  const str = val.toString().replace('.', ',');
+  const parts = str.split(',');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return parts.join(',');
+};
+
+const parseArgentineCurrency = (value: string) => {
+  if (!value) return 0;
+  return Number(value.replace(/\./g, '').replace(/,/g, '.'));
+};
+
 export default function ContactDetails({ contact, onEdit, onBack, onUpdateContact, user, allContacts = [] }: ContactDetailsProps) {
   const [currentStage, setCurrentStage] = useState(1);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -38,7 +63,7 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
     if (initial.length < 4) initial = [...initial, ...defaultStages.slice(initial.length)];
     return initial;
   });
-  const [priceInput, setPriceInput] = useState<string>(contact?.price?.toString() || '');
+  const [priceInput, setPriceInput] = useState<string>(formatInitialCurrency(contact?.price));
   const [priceError, setPriceError] = useState<string>('');
   
   // Budget state (Stage 2)
@@ -106,12 +131,12 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
       let initial = (contact.stages && contact.stages.length > 0) ? contact.stages : defaultStages;
       if (initial.length < 4) initial = [...initial, ...defaultStages.slice(initial.length)];
       setStages(initial);
-      setPriceInput(contact.price?.toString() || '');
+      setPriceInput(formatInitialCurrency(contact.price));
       setPriceError('');
       
       // Budget from stage 2
       const stage2 = initial.find(s => s.id === 2);
-      setBudgetInput(stage2?.budget?.toString() || '');
+      setBudgetInput(formatInitialCurrency(stage2?.budget));
       setBudgetDescInput(stage2?.budgetDescription || '');
 
       if (contact.status === 'won' || contact.status === 'lost') {
@@ -194,7 +219,7 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
 
   // --- Budget Handlers (Stage 2) ---
   const handleSaveBudget = () => {
-    const budgetNum = budgetInput ? Number(budgetInput) : undefined;
+    const budgetNum = budgetInput ? parseArgentineCurrency(budgetInput) : undefined;
     const updatedStages = stages.map(s =>
       s.id === 2 ? { ...s, budget: budgetNum, budgetDescription: budgetDescInput || undefined } : s
     );
@@ -207,12 +232,13 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
 
   // --- Price Handlers (Stage 3) ---
   const handleSavePrice = () => {
-    if (!priceInput || isNaN(Number(priceInput)) || Number(priceInput) <= 0) {
+    const numPrice = parseArgentineCurrency(priceInput);
+    if (!priceInput || isNaN(numPrice) || numPrice <= 0) {
       setPriceError('El precio debe ser mayor a 0');
       return;
     }
     setPriceError('');
-    const price = Number(priceInput);
+    const price = numPrice;
     const updatedStages = stages.map(s =>
       s.id === 3 ? { ...s, price } : s
     );
@@ -225,7 +251,8 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
 
   // --- Competition / Close Stage 3 ---
   const handleOpenCompetitionForm = (status: 'won' | 'lost') => {
-    if (!priceInput || isNaN(Number(priceInput)) || Number(priceInput) <= 0) {
+    const numPrice = parseArgentineCurrency(priceInput);
+    if (!priceInput || isNaN(numPrice) || numPrice <= 0) {
       setPriceError('El precio es obligatorio y debe ser mayor a 0');
       return;
     }
@@ -236,7 +263,7 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
   };
 
   const handleConfirmClose = () => {
-    const price = Number(priceInput);
+    const price = parseArgentineCurrency(priceInput);
     const updatedStages = stages.map(s =>
       s.id === 3 ? { ...s, price } : s
     );
@@ -571,11 +598,18 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
                     <div className="relative flex-1">
                       <span className={`absolute left-4 top-1/2 -translate-y-1/2 font-bold text-lg transition-colors ${!isEditingBudget && stages.find(s => s.id === 2)?.budget ? 'text-outline' : 'text-on-surface-variant'}`}>$</span>
                       <input
-                        type="number"
-                        placeholder="0.00"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0,00"
                         value={budgetInput}
                         readOnly={!isEditingBudget && !!stages.find(s => s.id === 2)?.budget}
-                        onChange={(e) => setBudgetInput(e.target.value)}
+                        onChange={(e) => setBudgetInput(formatToArgentineCurrency(e.target.value))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSaveBudget();
+                          }
+                        }}
                         className={`w-full border rounded-xl py-3 pl-10 pr-4 text-base font-medium transition-all ${
                           !isEditingBudget && stages.find(s => s.id === 2)?.budget
                             ? 'bg-transparent border-transparent text-outline cursor-default' 
@@ -644,13 +678,15 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
                   <div className="relative flex-1">
                     <span className={`absolute left-4 top-1/2 -translate-y-1/2 font-bold text-lg transition-colors ${!isEditingPrice && contact.price ? 'text-outline' : 'text-on-surface-variant'}`}>$</span>
                     <input
-                      type="number"
-                      placeholder="0.00"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
                       value={priceInput}
                       readOnly={!isEditingPrice && contact.price ? true : false}
                       onChange={(e) => {
-                        setPriceInput(e.target.value);
-                        if (e.target.value && Number(e.target.value) > 0) setPriceError('');
+                        const formatted = formatToArgentineCurrency(e.target.value);
+                        setPriceInput(formatted);
+                        if (formatted && parseArgentineCurrency(formatted) > 0) setPriceError('');
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {

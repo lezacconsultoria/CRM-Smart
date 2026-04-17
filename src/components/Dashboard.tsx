@@ -84,7 +84,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
     (c.stages || []).flatMap(s =>
       s.notes
         .filter(n => n.reminderDate && canViewItem(n.createdBy))
-        .map(n => ({ ...n, contactName: `${c.firstName} ${c.lastName}`, stageName: s.name }))
+        .map(n => ({ ...n, contactName: `${c.firstName} ${c.lastName}`, stageName: s.name, assignedTo: c.assignedTo }))
     )
   );
 
@@ -170,6 +170,17 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
     });
   });
 
+  const remindersVencidos = allReminders
+    .filter(r => r.reminderTimestamp && r.reminderTimestamp < todayStart.getTime())
+    .sort((a, b) => (b.reminderTimestamp || 0) - (a.reminderTimestamp || 0));
+
+  const remindersHoy = allReminders
+    .filter(r => r.reminderTimestamp && r.reminderTimestamp >= todayStart.getTime() && r.reminderTimestamp < tomorrowStart.getTime());
+
+  const remindersProximos = allReminders
+    .filter(r => !r.reminderTimestamp || r.reminderTimestamp >= tomorrowStart.getTime())
+    .sort((a, b) => (a.reminderTimestamp || 0) - (b.reminderTimestamp || 0));
+
   // ── Pie Chart Data: Won / Lost / Active ──
   const PIE_DATA = [
     { name: 'Ganados',   value: clientesGanados, fill: '#6ee7b7' },
@@ -234,75 +245,65 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
     <div className="pt-6 px-4 md:pt-8 md:px-8 pb-24 md:pb-12 min-h-screen">
 
       {/* ── KPI Bento Grid ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-        <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-outline-variant/5">
-          <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Total Contactos</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-headline text-3xl font-extrabold">{totalContactos}</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
+        <div className="bg-surface-container px-3 py-4 rounded-xl border border-outline-variant/5 flex flex-col justify-center">
+          <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5 truncate">Contactos</p>
+          <div className="flex items-baseline gap-1">
+            <h3 className="font-headline text-xl font-extrabold">{totalContactos}</h3>
           </div>
         </div>
 
-        <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-outline-variant/5">
-          <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Op. Activas</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-headline text-3xl font-extrabold">{activasHoy}</h3>
-            {activasHoy > 0 && <span className="text-[10px] text-outline">vence hoy</span>}
+        <div className="bg-surface-container px-3 py-4 rounded-xl border border-outline-variant/5 flex flex-col justify-center">
+          <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5 truncate">Op. Activas</p>
+          <div className="flex items-baseline gap-1">
+            <h3 className="font-headline text-xl font-extrabold">{activasHoy}</h3>
+            {activasHoy > 0 && <span className="text-[9px] text-outline">hoy</span>}
           </div>
         </div>
 
-        <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-error/10 bg-error/5 group">
-          <p className="text-[11px] font-bold text-error uppercase tracking-wider mb-4 flex items-center gap-2">
+        <div className="bg-surface-container px-3 py-4 rounded-xl border border-error/10 bg-error/5 group flex flex-col justify-center">
+          <p className="text-[10px] font-bold text-error uppercase tracking-wider mb-1.5 flex items-center gap-1 truncate">
             Op. Vencidas
             {vencidas > 0 && <span className="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>}
           </p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-headline text-3xl font-extrabold text-error">{vencidas}</h3>
-            {vencidas > 0 && <span className="text-xs text-error/60 material-symbols-outlined">priority_high</span>}
+          <div className="flex items-baseline gap-1">
+            <h3 className="font-headline text-xl font-extrabold text-error">{vencidas}</h3>
+            {vencidas > 0 && <span className="text-[10px] ml-1 text-error/60 material-symbols-outlined leading-none">priority_high</span>}
           </div>
         </div>
 
-        <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-outline-variant/5">
-          <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Clientes Ganados</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-headline text-3xl font-extrabold">{clientesGanados}</h3>
+        <div className="bg-surface-container px-3 py-4 rounded-xl border border-outline-variant/5 flex flex-col justify-center">
+          <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5 truncate">Ganados</p>
+          <div className="flex items-baseline gap-1">
+            <h3 className="font-headline text-xl font-extrabold">{clientesGanados}</h3>
           </div>
         </div>
 
-        <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-outline-variant/5">
-          <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Propuestas</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-headline text-3xl font-extrabold">{propuestas}</h3>
+        <div className="bg-surface-container px-3 py-4 rounded-xl border border-outline-variant/5 flex flex-col justify-center">
+          <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5 truncate">Propuestas</p>
+          <div className="flex items-baseline gap-1">
+            <h3 className="font-headline text-xl font-extrabold">{propuestas}</h3>
             {propuestas > 0 && totalContactos > 0 && (
-              <span className="text-[10px] text-primary">{Math.round((propuestas / totalContactos) * 100)}% del total</span>
+              <span className="text-[9px] text-primary">{Math.round((propuestas / totalContactos) * 100)}%</span>
             )}
           </div>
         </div>
 
-        <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-outline-variant/5 bg-gradient-to-br from-surface-container to-surface-container-high">
-          <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Tasa Avance</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-headline text-3xl font-extrabold">{tasaAvance}%</h3>
-            <div className="w-full h-1 bg-surface-container-lowest rounded-full mt-2 relative overflow-hidden">
-              <div className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${tasaAvance}%` }}></div>
-            </div>
+        <div className="bg-surface-container px-3 py-4 rounded-xl border border-outline-variant/5 flex flex-col justify-center">
+          <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5 truncate">Ingreso Proy.</p>
+          <div className="flex items-baseline gap-1">
+            <h3 className="font-headline text-xl font-extrabold truncate">${ingresoProyectado.toLocaleString('es-AR')}</h3>
           </div>
         </div>
 
-        <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-outline-variant/5">
-          <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-4">Ingreso Proyectado</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-headline text-3xl font-extrabold">${ingresoProyectado.toLocaleString('es-AR')}</h3>
-          </div>
-        </div>
-
-        <div className="lg:col-span-1 bg-surface-container p-5 md:p-6 rounded-xl border border-primary/20 shadow-sm shadow-primary/5 bg-gradient-to-br from-surface-container to-primary/5 relative overflow-hidden group">
+        <div className="bg-surface-container px-3 py-4 rounded-xl border border-primary/20 shadow-sm shadow-primary/5 bg-gradient-to-br from-surface-container to-primary/5 relative overflow-hidden group flex flex-col justify-center">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[100%] group-hover:animate-[shimmer_1.5s_infinite]"></div>
-          <p className="text-[11px] font-bold uppercase tracking-wider mb-4 flex items-center gap-2 text-primary">
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1 text-primary truncate">
             Ingreso Real
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
           </p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-headline text-3xl font-extrabold drop-shadow-sm">${ingresoReal.toLocaleString('es-AR')}</h3>
+          <div className="flex items-baseline gap-1">
+            <h3 className="font-headline text-xl font-extrabold drop-shadow-sm truncate">${ingresoReal.toLocaleString('es-AR')}</h3>
           </div>
         </div>
       </div>
@@ -565,87 +566,113 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
 
       {/* ── Bottom Grid: Reminders & Activity ── */}
       <div className="grid grid-cols-12 gap-4 md:gap-8">
-        {/* Próximos Recordatorios */}
-        <div className="col-span-12 lg:col-span-4 bg-surface-container p-5 md:p-6 rounded-xl">
-          <div className="flex items-center justify-between mb-6">
-            <h4 className="font-headline text-md font-bold">Recordatorios del Día</h4>
-            <span className="text-[10px] font-bold text-primary">{activasHoy} Hoy</span>
-          </div>
-          <div className="space-y-3">
-            {allReminders.length === 0 ? (
-              <p className="text-xs text-outline italic text-center py-4">No hay recordatorios pendientes</p>
-            ) : (
-              allReminders.slice(0, 5).map(reminder => (
-                <div key={reminder.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-surface-container-high group transition-all">
-                  <div className="mt-0.5 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[12px] text-primary">alarm</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-on-surface line-clamp-1">{reminder.text}</p>
-                    <p className="text-[10px] text-outline mt-1 flex justify-between">
-                      <span>{reminder.contactName}</span>
-                      <span className="text-primary font-bold">{reminder.reminderDate}</span>
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
 
-        {/* Recordatorios */}
-        <div className="col-span-12 lg:col-span-4 bg-surface-container p-5 md:p-6 rounded-xl">
-          <div className="flex items-center justify-between mb-6">
+        {/* Unified Reminders */}
+        <div className="col-span-12 lg:col-span-5 bg-surface-container p-5 md:p-6 rounded-xl">
+          <div className="flex items-center justify-between mb-4">
             <h4 className="font-headline text-md font-bold">Recordatorios</h4>
-            <span className="text-[10px] font-bold text-secondary-container">{allReminders.length} Próximos</span>
+            <div className="flex items-center gap-1.5">
+              {remindersVencidos.length > 0 && (
+                <span className="text-[9px] font-bold text-error bg-error/10 px-2 py-0.5 rounded-full border border-error/20">
+                  {remindersVencidos.length} vencido{remindersVencidos.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              {remindersHoy.length > 0 && (
+                <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+                  {remindersHoy.length} hoy
+                </span>
+              )}
+            </div>
           </div>
-          <div className="space-y-3">
-            {allReminders.length === 0 ? (
-              <p className="text-xs text-outline italic text-center py-4">No hay recordatorios próximos</p>
-            ) : (
-              allReminders.slice(0, 5).map(reminder => (
-                <div key={reminder.id} className="flex items-start gap-3 p-3 rounded-lg bg-surface-container-high border border-outline-variant/5">
-                  <div className="mt-0.5 w-6 h-6 rounded-full bg-secondary-container/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[12px] text-secondary-container">notification_important</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-on-surface line-clamp-2">{reminder.text}</p>
-                    <div className="flex justify-between items-center mt-2">
-                      <p className="text-[10px] text-outline font-bold">{reminder.contactName}</p>
-                      <p className="text-[10px] text-secondary-container font-bold bg-secondary-container/10 px-2 py-0.5 rounded">
-                        {reminder.reminderDate}
-                      </p>
+
+          {allReminders.length === 0 ? (
+            <p className="text-xs text-outline italic text-center py-6">No hay recordatorios pendientes</p>
+          ) : (
+            <div className="space-y-0.5">
+              {remindersVencidos.length > 0 && (
+                <>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-error/60 px-2 pt-1 pb-1.5">Vencidos</p>
+                  {remindersVencidos.slice(0, 3).map(r => (
+                    <div key={r.id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-error/5 transition-colors">
+                      <div className="w-1.5 h-1.5 rounded-full bg-error flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-on-surface truncate">{r.text}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-outline truncate">{r.contactName}</span>
+                          {r.assignedTo && <span className="text-[9px] text-error/70 bg-error/10 px-1.5 py-px rounded-full font-medium flex-shrink-0">{r.assignedTo}</span>}
+                        </div>
+                      </div>
+                      <span className="text-[9px] text-error font-bold flex-shrink-0 whitespace-nowrap">{r.reminderDate}</span>
                     </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                  ))}
+                </>
+              )}
+
+              {remindersHoy.length > 0 && (
+                <>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-amber-400/60 px-2 pt-3 pb-1.5">Hoy</p>
+                  {remindersHoy.map(r => (
+                    <div key={r.id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-amber-400/5 transition-colors">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 animate-pulse" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-on-surface font-medium truncate">{r.text}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-outline truncate">{r.contactName}</span>
+                          {r.assignedTo && <span className="text-[9px] text-amber-400/70 bg-amber-400/10 px-1.5 py-px rounded-full font-medium flex-shrink-0">{r.assignedTo}</span>}
+                        </div>
+                      </div>
+                      <span className="text-[9px] text-amber-400 font-bold flex-shrink-0 whitespace-nowrap">{r.reminderDate}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {remindersProximos.length > 0 && (
+                <>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-outline/40 px-2 pt-3 pb-1.5">Próximos</p>
+                  {remindersProximos.slice(0, 5).map(r => (
+                    <div key={r.id} className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/3 transition-colors">
+                      <div className="w-1.5 h-1.5 rounded-full bg-outline/30 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-on-surface/80 truncate">{r.text}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-outline truncate">{r.contactName}</span>
+                          {r.assignedTo && <span className="text-[9px] text-outline/60 bg-outline/10 px-1.5 py-px rounded-full font-medium flex-shrink-0">{r.assignedTo}</span>}
+                        </div>
+                      </div>
+                      <span className="text-[9px] text-outline font-bold flex-shrink-0 whitespace-nowrap">{r.reminderDate}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actividad Reciente */}
-        <div className="col-span-12 lg:col-span-4 bg-surface-container p-5 md:p-6 rounded-xl">
-          <h4 className="font-headline text-md font-bold mb-6">Actividad Reciente</h4>
-          <div className="space-y-6 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-outline-variant/20">
+        <div className="col-span-12 lg:col-span-7 bg-surface-container p-5 md:p-6 rounded-xl">
+          <h4 className="font-headline text-md font-bold mb-4">Actividad Reciente</h4>
+          <div className="space-y-0.5">
             {allActivity.length === 0 ? (
-              <p className="text-xs text-outline italic text-center py-4">No hay actividad reciente</p>
+              <p className="text-xs text-outline italic text-center py-6">No hay actividad reciente</p>
             ) : (
-              allActivity.slice(0, 5).map((activity, index) => (
-                <div key={activity.id} className="relative pl-8">
-                  <div className={`absolute left-0 top-1 w-4 h-4 rounded-full flex items-center justify-center ${index === 0 ? 'bg-primary/20' : 'bg-outline-variant/20'}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${index === 0 ? 'bg-primary' : 'bg-outline'}`}></div>
+              allActivity.slice(0, 8).map((activity, index) => (
+                <div key={activity.id} className="flex items-start gap-3 px-2 py-2 rounded-xl hover:bg-white/3 transition-colors">
+                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${index === 0 ? 'bg-primary' : 'bg-outline/25'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-on-surface/80 truncate">{activity.text}</p>
+                    <p className="text-[10px] text-outline mt-0.5">{activity.date} · {activity.contactName}</p>
                   </div>
-                  <p className="text-[11px] font-bold line-clamp-1">{activity.text}</p>
-                  <p className="text-[10px] text-outline">{activity.date} • {activity.contactName}</p>
                 </div>
               ))
             )}
           </div>
-          <button className="w-full mt-8 py-2 text-[10px] font-bold text-outline hover:text-primary transition-colors flex items-center justify-center gap-2">
+          <button className="w-full mt-5 py-2 text-[10px] font-bold text-outline hover:text-primary transition-colors flex items-center justify-center gap-2">
             Ver historial completo
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
         </div>
+
       </div>
     </div>
   );

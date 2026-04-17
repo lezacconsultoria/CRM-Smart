@@ -55,13 +55,13 @@ export const pbService = {
   async getUsers(): Promise<User[]> {
      try {
        const records = await pb.collection('users').getFullList({
-           sort: '-created', // 'users' has the default 'created' field
+           sort: '-created',
        });
        return records.map(u => ({
           id: u.id,
           name: u.name,
           email: u.email,
-          role: u.rol as 'admin' | 'user'
+          role: u.rol === 'admin' ? 'admin' : 'user'
        }));
      } catch (e) {
        console.error('Error fetching users', e);
@@ -69,14 +69,60 @@ export const pbService = {
      }
   },
 
+  async createUser(name: string, email: string, password: string, role: 'admin' | 'user'): Promise<User> {
+    const record = await pb.collection('users').create({
+      name,
+      email,
+      password,
+      passwordConfirm: password,
+      rol: role,
+      emailVisibility: true,
+    });
+    this._cachedUsers = null;
+    return { id: record.id, name: record.name, email: record.email, role: record.rol as 'admin' | 'user' };
+  },
+
+  async deleteUser(id: string): Promise<void> {
+    await pb.collection('users').delete(id);
+    this._cachedUsers = null;
+  },
+
+  // Devuelve el rol del usuario autenticado actualmente
+  _currentRole(): 'admin' | 'user' {
+    return (pb.authStore.record?.rol as 'admin' | 'user') || 'user';
+  },
+
+  _currentEmail(): string {
+    return (pb.authStore.record?.email as string) || '';
+  },
+
   // Contacts
   async getContacts(): Promise<{ list: ContactData[], isCache: boolean }> {
     try {
+      const role = this._currentRole();
+
       const records = await pb.collection('contactos').getFullList({
         sort: '-fecha_importado, -id',
       });
-      
-      const list = records.map((c) => this._mapContact(c));
+
+      let list = records.map((c) => this._mapContact(c));
+
+      if (role === 'user') {
+        const email = this._currentEmail();
+        const name = (pb.authStore.record?.name as string) || '';
+        list = list.filter(c => {
+          const a = (c.assignedTo || '').toLowerCase();
+          return a === email.toLowerCase() || (name && a === name.toLowerCase());
+        });
+      } else {
+        const allUsers = await this.getUsers();
+        const userRoleIds = new Set(
+          allUsers.filter(u => u.role === 'user').flatMap(u => [u.email?.toLowerCase(), u.name?.toLowerCase()].filter(Boolean))
+        );
+        if (userRoleIds.size > 0) {
+          list = list.filter(c => !userRoleIds.has((c.assignedTo || '').toLowerCase()));
+        }
+      }
       localStorage.setItem(CACHE_KEYS.CONTACTS, JSON.stringify(list));
       
       return { list, isCache: false };
@@ -247,7 +293,7 @@ export const pbService = {
       provincia: contact.province || '',
       pais: contact.country || '',
       origen_db: contact.source || contact.dbSource || '',
-      asignado: contact.assignedTo || '',
+      asignado: contact.assignedTo || (this._currentRole() === 'user' ? this._currentEmail() : ''),
       actividad: contact.activity || '',
       ids_origen: contact.externalId || '',
       email_valido: !!contact.isEmailValid,
@@ -295,7 +341,7 @@ export const pbService = {
             provincia: c.province || '',
             pais: c.country || '',
             origen_db: c.source || c.dbSource || 'Manual Import',
-            asignado: c.assignedTo || '',
+            asignado: this._currentRole() === 'user' ? this._currentEmail() : (c.assignedTo || ''),
             actividad: c.activity || '',
             ids_origen: c.externalId || '',
             email_valido: !!c.isEmailValid,

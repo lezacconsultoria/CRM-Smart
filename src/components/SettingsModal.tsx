@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save } from 'lucide-react';
-import { CompanyConfig } from '../types';
+import { CompanyConfig, User } from '../types';
 import { pbService } from '../services/pbService';
+import { useLanguage } from '../i18n';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -10,308 +10,407 @@ interface SettingsModalProps {
   onUpdate?: (config: CompanyConfig) => void;
 }
 
+type Section = 'empresa' | 'sistema' | 'etiquetas' | 'cargos' | 'usuarios';
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, initialConfig, onUpdate }) => {
-  const [config, setConfig] = useState<CompanyConfig>({
-    name: '',
-    rubro: '',
-    tags: [],
-    jobTitles: [],
-    extraInfo: '',
-    showBudget: true
-  });
+  const { lang, setLang, t } = useLanguage();
+
+  const NAV: { id: Section; icon: string; label: string }[] = [
+    { id: 'empresa',   icon: 'business', label: t('settings.empresa',   'Empresa')   },
+    { id: 'sistema',   icon: 'tune',     label: t('settings.sistema',   'Sistema')   },
+    { id: 'etiquetas', icon: 'label',    label: t('settings.etiquetas', 'Etiquetas') },
+    { id: 'cargos',    icon: 'badge',    label: t('settings.cargos',    'Cargos')    },
+    { id: 'usuarios',  icon: 'group',    label: t('settings.usuarios',  'Usuarios')  },
+  ];
+  const [config, setConfig] = useState<CompanyConfig>({ name: '', rubro: '', tags: [], jobTitles: [], extraInfo: '', showBudget: true });
+  const [section, setSection] = useState<Section>('empresa');
   const [newTag, setNewTag] = useState('');
   const [newJobTitle, setNewJobTitle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  // Usuarios
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'user' as 'admin' | 'user' });
+  const [userError, setUserError] = useState('');
+  const [userSaving, setUserSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      if (initialConfig) {
-        setConfig({
-          ...initialConfig,
-          tags: initialConfig.tags || [],
-          jobTitles: initialConfig.jobTitles || []
-        });
-      } else {
-        loadConfig();
-      }
+    if (!isOpen) return;
+    setSaved(false);
+    if (initialConfig) {
+      setConfig({ ...initialConfig, tags: initialConfig.tags || [], jobTitles: initialConfig.jobTitles || [] });
+    } else {
+      loadConfig();
     }
   }, [isOpen, initialConfig]);
+
+  useEffect(() => {
+    if (isOpen && section === 'usuarios') loadUsers();
+  }, [isOpen, section]);
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const list = await pbService.getUsers();
+      setUsers(list);
+    } catch {}
+    finally { setUsersLoading(false); }
+  };
+
+  const handleCreateUser = async () => {
+    setUserError('');
+    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.password.trim()) {
+      setUserError('Nombre, email y contraseña son obligatorios.');
+      return;
+    }
+    setUserSaving(true);
+    try {
+      const created = await pbService.createUser(newUser.name.trim(), newUser.email.trim(), newUser.password, newUser.role);
+      setUsers(u => [created, ...u]);
+      setNewUser({ name: '', email: '', password: '', role: 'user' });
+    } catch (e: any) {
+      setUserError(e?.data?.message || e?.message || 'Error al crear usuario.');
+    } finally { setUserSaving(false); }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    try {
+      await pbService.deleteUser(id);
+      setUsers(u => u.filter(x => x.id !== id));
+    } catch (e: any) {
+      setUserError(e?.data?.message || e?.message || 'Error al eliminar usuario.');
+    }
+  };
 
   const loadConfig = async () => {
     setIsLoading(true);
     try {
       const data = await pbService.getConfig();
-      if (data) {
-        setConfig({
-          ...data,
-          tags: data.tags || [],
-          jobTitles: data.jobTitles || []
-        });
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
+      if (data) setConfig({ ...data, tags: data.tags || [], jobTitles: data.jobTitles || [] });
+    } catch {}
+    finally { setIsLoading(false); }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
     setIsLoading(true);
-    setMessage(null);
     try {
       await pbService.updateConfig(config);
-      setMessage({ type: 'success', text: 'Configuración guardada correctamente' });
       if (onUpdate) onUpdate(config);
-      // Optional: close after delay
-      setTimeout(() => {
-        onClose();
-        setMessage(null);
-      }, 1500);
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Error al guardar la configuración' });
-    } finally {
-      setIsLoading(false);
-    }
+      setSaved(true);
+      setTimeout(() => { onClose(); setSaved(false); }, 1200);
+    } catch {}
+    finally { setIsLoading(false); }
   };
 
   const addTag = () => {
-    if (newTag.trim() && !config.tags.includes(newTag.trim())) {
-      setConfig({ ...config, tags: [...config.tags, newTag.trim()] });
-      setNewTag('');
-    }
+    const t = newTag.trim();
+    if (t && !config.tags.includes(t)) { setConfig(c => ({ ...c, tags: [...c.tags, t] })); setNewTag(''); }
   };
+  const removeTag = (t: string) => setConfig(c => ({ ...c, tags: c.tags.filter(x => x !== t) }));
 
-  const removeTag = (tagToRemove: string) => {
-    setConfig({ ...config, tags: config.tags.filter(t => t !== tagToRemove) });
+  const addJob = () => {
+    const t = newJobTitle.trim();
+    if (t && !(config.jobTitles || []).includes(t)) { setConfig(c => ({ ...c, jobTitles: [...(c.jobTitles || []), t] })); setNewJobTitle(''); }
   };
-
-  const addJobTitle = () => {
-    if (newJobTitle.trim() && !config.jobTitles.includes(newJobTitle.trim())) {
-      setConfig({ ...config, jobTitles: [...config.jobTitles, newJobTitle.trim()] });
-      setNewJobTitle('');
-    }
-  };
-
-  const removeJobTitle = (titleToRemove: string) => {
-    setConfig({ ...config, jobTitles: config.jobTitles.filter(t => t !== titleToRemove) });
-  };
+  const removeJob = (t: string) => setConfig(c => ({ ...c, jobTitles: (c.jobTitles || []).filter(x => x !== t) }));
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-surface-container-low rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-outline-variant/10">
-        <div className="p-6 border-b border-outline-variant/20 flex items-center justify-between bg-surface-container-high text-white">
-          <div>
-            <h2 className="text-2xl font-bold">Configuración de la Empresa</h2>
-            <p className="text-outline text-sm">Gestiona la información básica y etiquetas del CRM</p>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      {/* Panel */}
+      <div className="bg-[#1C1B1C] w-full sm:max-w-2xl sm:rounded-3xl overflow-hidden flex flex-col border border-[#4A4453]/20 shadow-2xl shadow-black/60"
+           style={{ height: '600px', maxHeight: '92vh' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#4A4453]/15">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+              <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>settings</span>
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white leading-none">Configuración</h2>
+              <p className="text-[10px] text-outline mt-0.5 uppercase tracking-widest">{config.name || 'Sin nombre'}</p>
+            </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-          >
-            <X size={24} />
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-outline hover:text-white hover:bg-white/5 transition-colors">
+            <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-8 space-y-8">
-          {message && (
-            <div className={`p-4 rounded-xl flex items-center gap-3 ${
-              message.type === 'success' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-error/10 text-error border border-error/20'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${message.type === 'success' ? 'bg-green-500' : 'bg-error'}`} />
-              <p className="font-medium text-sm">{message.text}</p>
-            </div>
-          )}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar nav — desktop only */}
+          <nav className="hidden sm:flex flex-col w-44 border-r border-[#4A4453]/15 p-3 gap-0.5 flex-shrink-0">
+            {NAV.map(n => (
+              <button key={n.id} onClick={() => setSection(n.id)}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all text-left ${
+                  section === n.id ? 'bg-primary/10 text-primary font-semibold' : 'text-[#958E9F] hover:text-[#CCC3D6] hover:bg-white/5'
+                }`}>
+                <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: section === n.id ? "'FILL' 1" : "'FILL' 0" }}>{n.icon}</span>
+                {n.label}
+              </button>
+            ))}
+          </nav>
 
-          <section className="space-y-4">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <span className="w-1 h-6 bg-primary rounded-full" />
-              Información Básica
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-outline">Nombre de la Empresa</label>
-                <input
-                  type="text"
-                  value={config.name}
-                  onChange={e => setConfig({ ...config, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-surface-container border border-outline-variant/40 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-white placeholder:text-outline/40"
-                  placeholder="Ej: Mi Empresa S.A."
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-outline">Rubro / Sector</label>
-                <input
-                  type="text"
-                  value={config.rubro}
-                  onChange={e => setConfig({ ...config, rubro: e.target.value })}
-                  className="w-full px-4 py-3 bg-surface-container border border-outline-variant/40 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-white placeholder:text-outline/40"
-                  placeholder="Ej: Tecnología, Salud, etc."
-                />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-sm font-medium text-outline">Información Adicional</label>
-                <textarea
-                  value={config.extraInfo}
-                  onChange={e => setConfig({ ...config, extraInfo: e.target.value })}
-                  className="w-full px-4 py-3 bg-surface-container border border-outline-variant/40 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none min-h-[100px] text-white placeholder:text-outline/40"
-                  placeholder="Cualquier otro dato relevante..."
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <span className="w-1 h-6 bg-primary rounded-full" />
-              Preferencias del Sistema
-            </h3>
-            <div className="bg-surface-container rounded-2xl p-6 border border-outline-variant/20">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-white">Habilitar Presupuesto</h4>
-                  <p className="text-sm text-outline">Mostrar la sección de presupuesto en la etapa de Propuesta</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setConfig({ ...config, showBudget: !config.showBudget })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                    config.showBudget ? 'bg-primary' : 'bg-outline-variant/40'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      config.showBudget ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
+          {/* Mobile tab strip */}
+          <div className="sm:hidden absolute left-0 right-0" style={{ top: '68px' }}>
+            <div className="flex border-b border-[#4A4453]/15 px-4">
+              {NAV.map(n => (
+                <button key={n.id} onClick={() => setSection(n.id)}
+                  className={`flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                    section === n.id ? 'text-primary border-b-2 border-primary' : 'text-outline'
+                  }`}>
+                  {n.label}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto sm:pt-0 pt-12">
+            {isLoading && !config.name ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
               </div>
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <span className="w-1 h-6 bg-primary rounded-full" />
-              Etiquetas para Observaciones
-            </h3>
-            <p className="text-sm text-outline">Estas etiquetas se utilizarán para clasificar las notas en las etapas de venta.</p>
-            
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newTag}
-                onChange={e => setNewTag(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                className="flex-1 px-4 py-3 bg-surface-container border border-outline-variant/40 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-white placeholder:text-outline/40"
-                placeholder="Nueva etiqueta..."
-              />
-              <button
-                type="button"
-                onClick={addTag}
-                className="bg-primary text-on-primary px-6 py-3 rounded-xl font-semibold hover:brightness-110 transition-all flex items-center gap-2 shadow-lg shadow-primary/10"
-              >
-                <Plus size={20} />
-                Agregar
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mt-4">
-              {config.tags.map(tag => (
-                <span 
-                  key={tag}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full group hover:bg-error/10 hover:text-error transition-all cursor-default border border-primary/20 hover:border-error/20"
-                >
-                  <span className="font-medium">{tag}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeTag(tag)}
-                    className="p-0.5 rounded-full hover:bg-error/20 transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </span>
-              ))}
-              {config.tags.length === 0 && (
-                <p className="text-gray-400 italic text-sm">No hay etiquetas configuradas.</p>
-              )}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <span className="w-1 h-6 bg-primary rounded-full" />
-              Cargos Predefinidos
-            </h3>
-            <p className="text-sm text-outline">Define los cargos que se podrán seleccionar al crear un nuevo contacto.</p>
-            
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newJobTitle}
-                onChange={e => setNewJobTitle(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addJobTitle())}
-                className="flex-1 px-4 py-3 bg-surface-container border border-outline-variant/40 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-white placeholder:text-outline/40"
-                placeholder="Nuevo cargo (ej: CEO, Gerente...)"
-              />
-              <button
-                type="button"
-                onClick={addJobTitle}
-                className="bg-primary text-on-primary px-6 py-3 rounded-xl font-semibold hover:brightness-110 transition-all flex items-center gap-2 shadow-lg shadow-primary/10"
-              >
-                <Plus size={20} />
-                Agregar
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mt-4">
-              {config.jobTitles?.map(title => (
-                <span 
-                  key={title}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/10 text-secondary rounded-full group hover:bg-error/10 hover:text-error transition-all cursor-default border border-secondary/20 hover:border-error/20"
-                >
-                  <span className="font-medium">{title}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeJobTitle(title)}
-                    className="p-0.5 rounded-full hover:bg-error/20 transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </span>
-              ))}
-              {(!config.jobTitles || config.jobTitles.length === 0) && (
-                <p className="text-outline/60 italic text-sm">No hay cargos configurados.</p>
-              )}
-            </div>
-          </section>
-        </form>
-
-        <div className="p-6 border-t border-outline-variant/10 bg-surface-container-low flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-3 text-outline font-semibold hover:bg-surface-container-high rounded-xl transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isLoading}
-            className="bg-primary text-on-primary px-8 py-3 rounded-xl font-bold shadow-lg shadow-primary/10 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center gap-2"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
             ) : (
-              <Save size={20} />
+              <div className="p-5 space-y-1">
+
+                {section === 'empresa' && (
+                  <>
+                    <SectionHeader label="Identidad de la empresa" />
+                    <Row label="Nombre" icon="domain">
+                      <input value={config.name} onChange={e => setConfig(c => ({ ...c, name: e.target.value }))}
+                        className="bg-transparent text-right text-sm text-white placeholder:text-outline/40 outline-none w-full max-w-[200px]"
+                        placeholder="Mi Empresa S.A." />
+                    </Row>
+                    <Row label="Rubro / Sector" icon="category">
+                      <input value={config.rubro} onChange={e => setConfig(c => ({ ...c, rubro: e.target.value }))}
+                        className="bg-transparent text-right text-sm text-white placeholder:text-outline/40 outline-none w-full max-w-[200px]"
+                        placeholder="Ej: Tecnología" />
+                    </Row>
+                    <div className="pt-4 pb-1">
+                      <p className="text-[10px] uppercase tracking-widest text-outline/50 font-semibold px-1 mb-2">Notas internas</p>
+                      <textarea value={config.extraInfo} onChange={e => setConfig(c => ({ ...c, extraInfo: e.target.value }))}
+                        rows={4}
+                        className="w-full bg-[#131314] text-sm text-[#CCC3D6] placeholder:text-outline/30 outline-none rounded-2xl px-4 py-3 resize-none border border-[#4A4453]/20 focus:border-primary/40 transition-colors"
+                        placeholder="Información adicional sobre la empresa o el equipo..." />
+                    </div>
+                  </>
+                )}
+
+                {section === 'sistema' && (
+                  <>
+                    <SectionHeader label={t('settings.sistema.prefs', 'Preferencias')} />
+                    <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-[#131314] border border-[#4A4453]/15">
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-[20px] text-outline" style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
+                        <div>
+                          <p className="text-sm font-medium text-white">{t('settings.sistema.budget_module', 'Módulo de Presupuesto')}</p>
+                          <p className="text-[11px] text-outline mt-0.5">{t('settings.sistema.budget_desc', 'Visible en la etapa Propuesta')}</p>
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => setConfig(c => ({ ...c, showBudget: !c.showBudget }))}
+                        className={`relative inline-flex h-6 w-11 rounded-full transition-colors flex-shrink-0 ${config.showBudget ? 'bg-primary' : 'bg-[#4A4453]/50'}`}>
+                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${config.showBudget ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-[#131314] border border-[#4A4453]/15 mt-2">
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-[20px] text-outline" style={{ fontVariationSettings: "'FILL' 1" }}>translate</span>
+                        <div>
+                          <p className="text-sm font-medium text-white">{t('settings.sistema.language', 'Idioma')}</p>
+                          <p className="text-[11px] text-outline mt-0.5">{t('settings.sistema.language_desc', 'Idioma de la interfaz')}</p>
+                        </div>
+                      </div>
+                      <div className="flex rounded-xl overflow-hidden border border-[#4A4453]/20">
+                        {(['es', 'en'] as const).map(l => (
+                          <button key={l} type="button" onClick={() => setLang(l)}
+                            className={`px-3 py-1.5 text-xs font-bold transition-colors ${lang === l ? 'bg-primary text-on-primary' : 'text-outline hover:text-white hover:bg-white/5'}`}>
+                            {l.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {section === 'etiquetas' && (
+                  <>
+                    <SectionHeader label="Clasificación de notas" />
+                    <p className="text-[11px] text-outline px-1 pb-2">Usadas para categorizar seguimientos en las etapas de venta.</p>
+                    <div className="flex gap-2 mb-3">
+                      <input value={newTag} onChange={e => setNewTag(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                        className="flex-1 bg-[#131314] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-4 py-2.5 outline-none"
+                        placeholder="Nueva etiqueta..." />
+                      <button type="button" onClick={addTag}
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary/15 text-primary hover:bg-primary/25 transition-colors flex-shrink-0">
+                        <span className="material-symbols-outlined text-[20px]">add</span>
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {config.tags.map(tag => (
+                        <span key={tag} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-primary/10 text-primary text-sm rounded-full border border-primary/15 group">
+                          {tag}
+                          <button type="button" onClick={() => removeTag(tag)}
+                            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors">
+                            <span className="material-symbols-outlined text-[14px]">close</span>
+                          </button>
+                        </span>
+                      ))}
+                      {config.tags.length === 0 && <p className="text-outline/40 text-sm italic px-1">Sin etiquetas configuradas.</p>}
+                    </div>
+                  </>
+                )}
+
+                {section === 'usuarios' && (
+                  <>
+                    <SectionHeader label="Usuarios del CRM" />
+                    <p className="text-[11px] text-outline px-1 pb-3">Creá usuarios y asignales un rol para acceder al sistema.</p>
+
+                    {/* Formulario nuevo usuario */}
+                    <div className="bg-[#131314] border border-[#4A4453]/20 rounded-2xl p-4 space-y-3 mb-4">
+                      <p className="text-[11px] uppercase tracking-widest text-outline/50 font-bold">Nuevo usuario</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={newUser.name} onChange={e => setNewUser(u => ({ ...u, name: e.target.value }))}
+                          className="col-span-2 bg-[#1C1B1C] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-3 py-2.5 outline-none"
+                          placeholder="Nombre completo" />
+                        <input value={newUser.email} onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))}
+                          type="email"
+                          className="bg-[#1C1B1C] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-3 py-2.5 outline-none"
+                          placeholder="Email" />
+                        <input value={newUser.password} onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))}
+                          type="password"
+                          className="bg-[#1C1B1C] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-3 py-2.5 outline-none"
+                          placeholder="Contraseña" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex rounded-xl overflow-hidden border border-[#4A4453]/20 flex-1">
+                          {(['user', 'admin'] as const).map(r => (
+                            <button key={r} type="button"
+                              onClick={() => setNewUser(u => ({ ...u, role: r }))}
+                              className={`flex-1 py-2 text-xs font-semibold transition-colors ${newUser.role === r ? 'bg-primary text-on-primary' : 'text-outline hover:text-white hover:bg-white/5'}`}>
+                              {r === 'admin' ? 'Admin' : 'Usuario'}
+                            </button>
+                          ))}
+                        </div>
+                        <button type="button" onClick={handleCreateUser} disabled={userSaving}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold hover:brightness-110 transition-all disabled:opacity-50 flex-shrink-0">
+                          {userSaving
+                            ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                            : <span className="material-symbols-outlined text-[16px]">person_add</span>}
+                          Crear
+                        </button>
+                      </div>
+                      {userError && <p className="text-xs text-red-400 px-1">{userError}</p>}
+                    </div>
+
+                    {/* Lista de usuarios */}
+                    {usersLoading ? (
+                      <div className="flex items-center justify-center h-20">
+                        <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {users.map(u => (
+                          <div key={u.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#131314] border border-[#4A4453]/15">
+                            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                              <span className="material-symbols-outlined text-primary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-white truncate">{u.name}</p>
+                              <p className="text-[11px] text-outline truncate">{u.email}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-amber-500/15 text-amber-400' : 'bg-primary/10 text-primary'}`}>
+                              {u.role === 'admin' ? 'Admin' : 'Usuario'}
+                            </span>
+                            <button type="button" onClick={() => handleDeleteUser(u.id)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-outline hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0">
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        ))}
+                        {users.length === 0 && <p className="text-outline/40 text-sm italic px-1">Sin usuarios creados.</p>}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {section === 'cargos' && (
+                  <>
+                    <SectionHeader label="Cargos predefinidos" />
+                    <p className="text-[11px] text-outline px-1 pb-2">Se muestran como opciones al crear un nuevo contacto.</p>
+                    <div className="flex gap-2 mb-3">
+                      <input value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addJob())}
+                        className="flex-1 bg-[#131314] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-4 py-2.5 outline-none"
+                        placeholder="CEO, Gerente, Director..." />
+                      <button type="button" onClick={addJob}
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary/15 text-secondary hover:bg-secondary/25 transition-colors flex-shrink-0">
+                        <span className="material-symbols-outlined text-[20px]">add</span>
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(config.jobTitles || []).map(title => (
+                        <span key={title} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-secondary/10 text-secondary text-sm rounded-full border border-secondary/15">
+                          {title}
+                          <button type="button" onClick={() => removeJob(title)}
+                            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors">
+                            <span className="material-symbols-outlined text-[14px]">close</span>
+                          </button>
+                        </span>
+                      ))}
+                      {(!config.jobTitles || config.jobTitles.length === 0) && <p className="text-outline/40 text-sm italic px-1">Sin cargos configurados.</p>}
+                    </div>
+                  </>
+                )}
+
+              </div>
             )}
-            Guardar Configuración
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-[#4A4453]/15 flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-5 py-2 rounded-xl text-sm text-outline hover:text-white hover:bg-white/5 transition-colors font-medium">
+            {section === 'usuarios' ? 'Cerrar' : 'Cancelar'}
           </button>
+          {section !== 'usuarios' && <button onClick={handleSave} disabled={isLoading}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-lg ${
+              saved ? 'bg-green-500/20 text-green-400 border border-green-500/20' : 'bg-primary text-on-primary hover:brightness-110 active:scale-95 shadow-primary/10'
+            } disabled:opacity-50 disabled:pointer-events-none`}>
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+            ) : saved ? (
+              <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+            ) : (
+              <span className="material-symbols-outlined text-[16px]">save</span>
+            )}
+            {saved ? 'Guardado' : 'Guardar'}
+          </button>}
         </div>
       </div>
     </div>
   );
 };
+
+function SectionHeader({ label }: { label: string }) {
+  return <p className="text-[10px] uppercase tracking-widest text-outline/50 font-bold px-1 pt-1 pb-2">{label}</p>;
+}
+
+function Row({ label, icon, children }: { label: string; icon: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-white/3 transition-colors group">
+      <div className="flex items-center gap-3">
+        <span className="material-symbols-outlined text-[18px] text-outline/60">{icon}</span>
+        <span className="text-sm text-[#CCC3D6]">{label}</span>
+      </div>
+      <div className="flex items-center gap-1 text-outline/60 group-focus-within:text-white transition-colors">
+        {children}
+        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+      </div>
+    </div>
+  );
+}

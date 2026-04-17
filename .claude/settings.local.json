@@ -4,7 +4,15 @@
       "Bash(npm install:*)",
       "Bash(npm run:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(npx n8n-mcp *)",
+      "Bash(node \"c:/Users/PC/.gemini/antigravity/pocketbase_mcp.js\" --help)",
+      "Bash(claude mcp *)",
+      "mcp__firebase-mcp-server__firebase_get_environment",
+      "mcp__pocketbase_MCP__list_collections",
+      "Bash(npx -y @supabase/mcp-server-supabase@latest --access-token sbp_88a5b1e83abcb0fec51804d6f75f400ef5d15da1)",
+      "mcp__pocketbase_MCP__create_user",
+      "mcp__pocketbase_MCP__update_record"
     ]
   }
 }

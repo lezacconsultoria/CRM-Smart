@@ -1,0 +1,42 @@
+{
+  "mcpServers": {
+    "firebase-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "firebase-tools@latest", "mcp"],
+      "env": {}
+    },
+    "gmp-code-assist": {
+      "command": "npx",
+      "args": ["-y", "@googlemaps/code-assist-mcp@latest"],
+      "env": {
+        "SOURCE": "antigravity"
+      }
+    },
+    "n8n-mcp": {
+      "command": "npx",
+      "args": ["n8n-mcp"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "N8N_API_URL": "https://n8n.lezacconsultoria.com/",
+        "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZmNlZTlmNC1jZDY0LTRkNmEtOWNiNy0wMzFmZmViYTZmMGYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzc0OTYyNzIwfQ.DKMvyfiZh23D_CzFsTEGDj5vxbS_FlZVTEo6kNeS_a0"
+      }
+    },
+    "supabase-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "sbp_88a5b1e83abcb0fec51804d6f75f400ef5d15da1"],
+      "env": {}
+    },
+    "pocketbase_MCP": {
+      "command": "node",
+      "args": ["c:/Users/PC/.gemini/antigravity/pocketbase_mcp.js"],
+      "env": {
+        "POCKETBASE_URL": "https://pb.lezacconsultoria.com",
+        "POCKETBASE_ADMIN_EMAIL": "arrativelfacundo1@gmail.com",
+        "POCKETBASE_ADMIN_PASSWORD": "Gualeguay2025##"
+      },
+      "autoApprove": ["create_record", "create_collection"]
+    }
+  }
+}

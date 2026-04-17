@@ -3,13 +3,14 @@ import Login from './components/Login';
 import Layout from './components/Layout';
 import { ContactData, User } from './types';
 import { pbService } from './services/pbService';
+import { LanguageProvider } from './i18n';
 
 // Lazy load components for code-splitting
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Contacts = lazy(() => import('./components/Contacts'));
 const ContactDetails = lazy(() => import('./components/ContactDetails'));
-const Servicios = lazy(() => import('./components/Servicios'));
-const Plantillas = lazy(() => import('./components/Plantillas'));
+const Pipeline = lazy(() => import('./components/Pipeline'));
+const Actividades = lazy(() => import('./components/Actividades'));
 const NewContactModal = lazy(() => import('./components/NewContactModal'));
 const ImportContactModal = lazy(() => import('./components/ImportContactModal'));
 const DeleteConfirmModal = lazy(() => import('./components/DeleteConfirmModal'));
@@ -22,7 +23,7 @@ const LoadingFallback = () => (
   </div>
 );
 
-type ViewState = 'login' | 'dashboard' | 'contacts' | 'contact-details' | 'servicios' | 'plantillas';
+type ViewState = 'login' | 'dashboard' | 'contacts' | 'contact-details' | 'pipeline' | 'actividades';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('login');
@@ -48,7 +49,7 @@ export default function App() {
     
     // Get actual view from Path
     const path = window.location.pathname.replace('/', '');
-    const validViews = ['dashboard', 'contacts', 'servicios', 'plantillas'];
+    const validViews = ['dashboard', 'contacts', 'pipeline', 'actividades'];
     const initialView = validViews.includes(path) ? (path as ViewState) : 'dashboard';
 
     if (savedUser) {
@@ -252,10 +253,11 @@ export default function App() {
   };
 
   if (currentView === 'login') {
-    return <Login onLogin={handleLogin} />;
+    return <LanguageProvider><Login onLogin={handleLogin} /></LanguageProvider>;
   }
 
   return (
+    <LanguageProvider>
     <>
       {isOffline && (
         <div className="bg-amber-500/10 border-b border-amber-500/20 py-2 px-4 flex items-center justify-center gap-3 z-[100] relative backdrop-blur-md">
@@ -333,8 +335,21 @@ export default function App() {
                   allContacts={contacts}
                 />
               )}
-              {currentView === 'servicios' && <Servicios />}
-              {currentView === 'plantillas' && <Plantillas />}
+              {currentView === 'pipeline' && (
+                <Pipeline
+                  contacts={filteredContacts}
+                  onSelectContact={handleSelectContact}
+                  onOpenNewContact={handleOpenNewContact}
+                  user={currentUser}
+                />
+              )}
+              {currentView === 'actividades' && (
+                <Actividades
+                  contacts={filteredContacts}
+                  onSelectContact={handleSelectContact}
+                  user={currentUser}
+                />
+              )}
             </>
           )}
         </Suspense>
@@ -353,5 +368,6 @@ export default function App() {
         <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
       </Suspense>
     </>
+    </LanguageProvider>
   );
 }
