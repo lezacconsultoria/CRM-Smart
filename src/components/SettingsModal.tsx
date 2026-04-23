@@ -123,11 +123,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* Panel */}
-      <div className="bg-[#1C1B1C] w-full sm:max-w-2xl sm:rounded-3xl overflow-hidden flex flex-col border border-[#4A4453]/20 shadow-2xl shadow-black/60"
-           style={{ height: '600px', maxHeight: '92vh' }}>
+      <div className="bg-[#1C1B1C] w-full sm:max-w-2xl sm:rounded-3xl rounded-t-[32px] flex flex-col border border-[#4A4453]/20 shadow-2xl shadow-black/60 overflow-hidden"
+           style={{ height: 'min(600px, 85vh)', maxHeight: '85vh' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#4A4453]/15">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#4A4453]/15 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
               <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>settings</span>
@@ -142,7 +142,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
           </button>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col sm:flex-row flex-1 min-h-0">
           {/* Sidebar nav — desktop only */}
           <nav className="hidden sm:flex flex-col w-44 border-r border-[#4A4453]/15 p-3 gap-0.5 flex-shrink-0">
             {NAV.map(n => (
@@ -156,13 +156,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
             ))}
           </nav>
 
-          {/* Mobile tab strip */}
-          <div className="sm:hidden absolute left-0 right-0 bg-[#1C1B1C] z-10" style={{ top: '65px' }}>
-            <div className="flex border-b border-[#4A4453]/15 px-2 overflow-x-auto no-scrollbar">
+          {/* Mobile tab strip - simplified structure */}
+          <div className="sm:hidden border-b border-[#4A4453]/15 bg-[#1C1B1C] flex-shrink-0">
+            <div className="flex px-2 overflow-x-auto no-scrollbar">
               {NAV.map(n => (
                 <button key={n.id} onClick={() => setSection(n.id)}
-                  className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
-                    section === n.id ? 'text-primary border-b-2 border-primary' : 'text-outline'
+                  className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap border-b-2 ${
+                    section === n.id ? 'text-primary border-primary' : 'text-outline border-transparent'
                   }`}>
                   {n.label}
                 </button>
@@ -171,7 +171,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto sm:pt-0 pt-12">
+          <div className="flex-1 overflow-y-auto">
             {isLoading && !config.name ? (
               <div className="flex items-center justify-center h-40">
                 <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -208,12 +208,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                 {section === 'sistema' && (
                   <>
                     <SectionHeader label={t('settings.sistema.prefs', 'Preferencias')} />
-                    <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-[#131314] border border-[#4A4453]/15">
-                      <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-[20px] text-outline" style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
-                        <div>
-                          <p className="text-sm font-medium text-white">{t('settings.sistema.budget_module', 'Módulo de Presupuesto')}</p>
-                          <p className="text-[11px] text-outline mt-0.5">{t('settings.sistema.budget_desc', 'Visible en la etapa Propuesta')}</p>
+                    <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-[#131314] border border-[#4A4453]/15 gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="material-symbols-outlined text-[20px] text-outline flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{t('settings.sistema.budget_module', 'Módulo de Presupuesto')}</p>
+                          <p className="text-[11px] text-outline mt-0.5 truncate">{t('settings.sistema.budget_desc', 'Visible en la etapa Propuesta')}</p>
                         </div>
                       </div>
                       <button type="button" 
@@ -223,15 +223,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                         <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${config.showBudget ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
                       </button>
                     </div>
-                    <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-[#131314] border border-[#4A4453]/15 mt-2">
-                      <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-[20px] text-outline" style={{ fontVariationSettings: "'FILL' 1" }}>translate</span>
-                        <div>
-                          <p className="text-sm font-medium text-white">{t('settings.sistema.language', 'Idioma')}</p>
-                          <p className="text-[11px] text-outline mt-0.5">{t('settings.sistema.language_desc', 'Idioma de la interfaz')}</p>
+                    <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-[#131314] border border-[#4A4453]/15 mt-2 gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="material-symbols-outlined text-[20px] text-outline flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>translate</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{t('settings.sistema.language', 'Idioma')}</p>
+                          <p className="text-[11px] text-outline mt-0.5 truncate">{t('settings.sistema.language_desc', 'Idioma de la interfaz')}</p>
                         </div>
                       </div>
-                      <div className="flex rounded-xl overflow-hidden border border-[#4A4453]/20">
+                      <div className="flex rounded-xl overflow-hidden border border-[#4A4453]/20 flex-shrink-0">
                         {(['es', 'en'] as const).map(l => (
                           <button key={l} type="button" 
                             onClick={() => isAdmin && setLang(l)}
@@ -328,16 +328,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                     ) : (
                       <div className="space-y-1.5">
                         {users.map(u => (
-                          <div key={u.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#131314] border border-[#4A4453]/15">
-                            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                          <div key={u.id} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-2xl bg-[#131314] border border-[#4A4453]/15">
+                            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0 hidden xs:flex">
                               <span className="material-symbols-outlined text-primary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-white truncate">{u.name}</p>
-                              <p className="text-[11px] text-outline truncate">{u.email}</p>
+                              <p className="text-[10px] sm:text-[11px] text-outline truncate">{u.email}</p>
                             </div>
-                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-amber-500/15 text-amber-400' : 'bg-primary/10 text-primary'}`}>
-                              {u.role === 'admin' ? 'Admin' : 'Usuario'}
+                            <span className={`text-[9px] sm:text-[10px] font-bold uppercase px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0 ${u.role === 'admin' ? 'bg-amber-500/15 text-amber-400' : 'bg-primary/10 text-primary'}`}>
+                              {u.role === 'admin' ? 'Admin' : 'User'}
                             </span>
                             <button type="button" onClick={() => handleDeleteUser(u.id)}
                               className="w-7 h-7 flex items-center justify-center rounded-lg text-outline hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0">
@@ -419,14 +419,16 @@ function SectionHeader({ label }: { label: string }) {
 
 function Row({ label, icon, children }: { label: string; icon: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-white/3 transition-colors group">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 rounded-2xl hover:bg-white/3 transition-colors group gap-2">
       <div className="flex items-center gap-3">
         <span className="material-symbols-outlined text-[18px] text-outline/60">{icon}</span>
         <span className="text-sm text-[#CCC3D6]">{label}</span>
       </div>
-      <div className="flex items-center gap-1 text-outline/60 group-focus-within:text-white transition-colors">
-        {children}
-        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+      <div className="flex items-center gap-1 text-outline/60 group-focus-within:text-white transition-colors w-full sm:w-auto justify-end">
+        <div className="flex-1 sm:flex-none text-right">
+          {children}
+        </div>
+        <span className="material-symbols-outlined text-[16px] flex-shrink-0">chevron_right</span>
       </div>
     </div>
   );

@@ -215,10 +215,17 @@ export default function Actividades({ contacts, onSelectContact, user, onUpdateC
             const contact = contacts.find(c => c.id === item.contactId);
             const isVencido = activeTab === 'vencidos';
             return (
-              <button
+              <div
                 key={`${item.contactId}-${item.noteId}`}
                 onClick={() => contact && onSelectContact(contact)}
-                className={`w-full text-left bg-surface-container hover:bg-surface-container-high border rounded-xl px-4 py-3 transition-all duration-200 group flex items-start gap-4 ${
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    contact && onSelectContact(contact);
+                  }
+                }}
+                className={`w-full text-left bg-surface-container hover:bg-surface-container-high border rounded-xl px-4 py-3 transition-all duration-200 group flex items-start gap-4 cursor-pointer ${
                   isVencido
                     ? 'border-error/20 hover:border-error/40'
                     : 'border-outline-variant/10 hover:border-primary/20'
@@ -281,7 +288,7 @@ export default function Actividades({ contacts, onSelectContact, user, onUpdateC
                     <span className="material-symbols-outlined text-[16px]">done</span>
                   </button>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

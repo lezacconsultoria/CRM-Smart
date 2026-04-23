@@ -14,7 +14,7 @@ const Actividades = lazy(() => import('./components/Actividades'));
 const NewContactModal = lazy(() => import('./components/NewContactModal'));
 const ImportContactModal = lazy(() => import('./components/ImportContactModal'));
 const DeleteConfirmModal = lazy(() => import('./components/DeleteConfirmModal'));
-const SettingsModal = lazy(() => import('./components/SettingsModal').then(module => ({ default: module.SettingsModal })));
+import { SettingsModal } from './components/SettingsModal';
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -366,7 +366,7 @@ export default function App() {
         count={contactsToDelete.length > 1 ? contactsToDelete.length : undefined}
         isLoading={isDeleting}
       />
-        <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} user={currentUser} />
+      <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} user={currentUser} />
       </Suspense>
     </>
     </LanguageProvider>
