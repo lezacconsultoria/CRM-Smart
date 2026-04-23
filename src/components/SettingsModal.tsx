@@ -8,12 +8,14 @@ interface SettingsModalProps {
   onClose: () => void;
   initialConfig?: CompanyConfig | null;
   onUpdate?: (config: CompanyConfig) => void;
+  user: User | null;
 }
 
 type Section = 'empresa' | 'sistema' | 'etiquetas' | 'cargos' | 'usuarios';
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, initialConfig, onUpdate }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, initialConfig, onUpdate, user }) => {
   const { lang, setLang, t } = useLanguage();
+  const isAdmin = user?.role === 'admin';
 
   const NAV: { id: Section; icon: string; label: string }[] = [
     { id: 'empresa',   icon: 'business', label: t('settings.empresa',   'Empresa')   },
@@ -21,7 +23,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
     { id: 'etiquetas', icon: 'label',    label: t('settings.etiquetas', 'Etiquetas') },
     { id: 'cargos',    icon: 'badge',    label: t('settings.cargos',    'Cargos')    },
     { id: 'usuarios',  icon: 'group',    label: t('settings.usuarios',  'Usuarios')  },
-  ];
+  ].filter(item => item.id !== 'usuarios' || isAdmin);
   const [config, setConfig] = useState<CompanyConfig>({ name: '', rubro: '', tags: [], jobTitles: [], extraInfo: '', showBudget: true });
   const [section, setSection] = useState<Section>('empresa');
   const [newTag, setNewTag] = useState('');
@@ -112,9 +114,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
 
   const addJob = () => {
     const t = newJobTitle.trim();
-    if (t && !(config.jobTitles || []).includes(t)) { setConfig(c => ({ ...c, jobTitles: [...(c.jobTitles || []), t] })); setNewJobTitle(''); }
+    if (t && !(config.jobTitles || []).includes(t)) { setConfig(c => ({ ...c, jobTitles: [...(config.jobTitles || []), t] })); setNewJobTitle(''); }
   };
-  const removeJob = (t: string) => setConfig(c => ({ ...c, jobTitles: (c.jobTitles || []).filter(x => x !== t) }));
+  const removeJob = (t: string) => setConfig(c => ({ ...c, jobTitles: (config.jobTitles || []).filter(x => x !== t) }));
 
   if (!isOpen) return null;
 
@@ -182,19 +184,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                     <SectionHeader label="Identidad de la empresa" />
                     <Row label="Nombre" icon="domain">
                       <input value={config.name} onChange={e => setConfig(c => ({ ...c, name: e.target.value }))}
-                        className="bg-transparent text-right text-sm text-white placeholder:text-outline/40 outline-none w-full max-w-[200px]"
+                        disabled={!isAdmin}
+                        className="bg-transparent text-right text-sm text-white placeholder:text-outline/40 outline-none w-full max-w-[200px] disabled:opacity-50"
                         placeholder="Mi Empresa S.A." />
                     </Row>
                     <Row label="Rubro / Sector" icon="category">
                       <input value={config.rubro} onChange={e => setConfig(c => ({ ...c, rubro: e.target.value }))}
-                        className="bg-transparent text-right text-sm text-white placeholder:text-outline/40 outline-none w-full max-w-[200px]"
+                        disabled={!isAdmin}
+                        className="bg-transparent text-right text-sm text-white placeholder:text-outline/40 outline-none w-full max-w-[200px] disabled:opacity-50"
                         placeholder="Ej: Tecnología" />
                     </Row>
                     <div className="pt-4 pb-1">
                       <p className="text-[10px] uppercase tracking-widest text-outline/50 font-semibold px-1 mb-2">Notas internas</p>
                       <textarea value={config.extraInfo} onChange={e => setConfig(c => ({ ...c, extraInfo: e.target.value }))}
                         rows={4}
-                        className="w-full bg-[#131314] text-sm text-[#CCC3D6] placeholder:text-outline/30 outline-none rounded-2xl px-4 py-3 resize-none border border-[#4A4453]/20 focus:border-primary/40 transition-colors"
+                        disabled={!isAdmin}
+                        className="w-full bg-[#131314] text-sm text-[#CCC3D6] placeholder:text-outline/30 outline-none rounded-2xl px-4 py-3 resize-none border border-[#4A4453]/20 focus:border-primary/40 transition-colors disabled:opacity-50"
                         placeholder="Información adicional sobre la empresa o el equipo..." />
                     </div>
                   </>
@@ -211,8 +216,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                           <p className="text-[11px] text-outline mt-0.5">{t('settings.sistema.budget_desc', 'Visible en la etapa Propuesta')}</p>
                         </div>
                       </div>
-                      <button type="button" onClick={() => setConfig(c => ({ ...c, showBudget: !c.showBudget }))}
-                        className={`relative inline-flex h-6 w-11 rounded-full transition-colors flex-shrink-0 ${config.showBudget ? 'bg-primary' : 'bg-[#4A4453]/50'}`}>
+                      <button type="button" 
+                        onClick={() => isAdmin && setConfig(c => ({ ...c, showBudget: !c.showBudget }))}
+                        disabled={!isAdmin}
+                        className={`relative inline-flex h-6 w-11 rounded-full transition-colors flex-shrink-0 ${config.showBudget ? 'bg-primary' : 'bg-[#4A4453]/50'} disabled:opacity-50`}>
                         <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${config.showBudget ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
                       </button>
                     </div>
@@ -226,8 +233,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                       </div>
                       <div className="flex rounded-xl overflow-hidden border border-[#4A4453]/20">
                         {(['es', 'en'] as const).map(l => (
-                          <button key={l} type="button" onClick={() => setLang(l)}
-                            className={`px-3 py-1.5 text-xs font-bold transition-colors ${lang === l ? 'bg-primary text-on-primary' : 'text-outline hover:text-white hover:bg-white/5'}`}>
+                          <button key={l} type="button" 
+                            onClick={() => isAdmin && setLang(l)}
+                            disabled={!isAdmin}
+                            className={`px-3 py-1.5 text-xs font-bold transition-colors ${lang === l ? 'bg-primary text-on-primary' : 'text-outline hover:text-white hover:bg-white/5'} disabled:opacity-50`}>
                             {l.toUpperCase()}
                           </button>
                         ))}
@@ -242,11 +251,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                     <p className="text-[11px] text-outline px-1 pb-2">Usadas para categorizar seguimientos en las etapas de venta.</p>
                     <div className="flex gap-2 mb-3">
                       <input value={newTag} onChange={e => setNewTag(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                        className="flex-1 bg-[#131314] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-4 py-2.5 outline-none"
+                        disabled={!isAdmin}
+                        onKeyDown={e => e.key === 'Enter' && isAdmin && (e.preventDefault(), addTag())}
+                        className="flex-1 bg-[#131314] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-4 py-2.5 outline-none disabled:opacity-50"
                         placeholder="Nueva etiqueta..." />
                       <button type="button" onClick={addTag}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary/15 text-primary hover:bg-primary/25 transition-colors flex-shrink-0">
+                        disabled={!isAdmin}
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary/15 text-primary hover:bg-primary/25 transition-colors flex-shrink-0 disabled:opacity-50">
                         <span className="material-symbols-outlined text-[20px]">add</span>
                       </button>
                     </div>
@@ -254,10 +265,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                       {config.tags.map(tag => (
                         <span key={tag} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-primary/10 text-primary text-sm rounded-full border border-primary/15 group">
                           {tag}
-                          <button type="button" onClick={() => removeTag(tag)}
-                            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors">
-                            <span className="material-symbols-outlined text-[14px]">close</span>
-                          </button>
+                          {isAdmin && (
+                            <button type="button" onClick={() => removeTag(tag)}
+                              className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors">
+                              <span className="material-symbols-outlined text-[14px]">close</span>
+                            </button>
+                          )}
                         </span>
                       ))}
                       {config.tags.length === 0 && <p className="text-outline/40 text-sm italic px-1">Sin etiquetas configuradas.</p>}
@@ -344,11 +357,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                     <p className="text-[11px] text-outline px-1 pb-2">Se muestran como opciones al crear un nuevo contacto.</p>
                     <div className="flex gap-2 mb-3">
                       <input value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addJob())}
-                        className="flex-1 bg-[#131314] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-4 py-2.5 outline-none"
+                        disabled={!isAdmin}
+                        onKeyDown={e => e.key === 'Enter' && isAdmin && (e.preventDefault(), addJob())}
+                        className="flex-1 bg-[#131314] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-4 py-2.5 outline-none disabled:opacity-50"
                         placeholder="CEO, Gerente, Director..." />
                       <button type="button" onClick={addJob}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary/15 text-secondary hover:bg-secondary/25 transition-colors flex-shrink-0">
+                        disabled={!isAdmin}
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary/15 text-secondary hover:bg-secondary/25 transition-colors flex-shrink-0 disabled:opacity-50">
                         <span className="material-symbols-outlined text-[20px]">add</span>
                       </button>
                     </div>
@@ -356,10 +371,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                       {(config.jobTitles || []).map(title => (
                         <span key={title} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-secondary/10 text-secondary text-sm rounded-full border border-secondary/15">
                           {title}
-                          <button type="button" onClick={() => removeJob(title)}
-                            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors">
-                            <span className="material-symbols-outlined text-[14px]">close</span>
-                          </button>
+                          {isAdmin && (
+                            <button type="button" onClick={() => removeJob(title)}
+                              className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-error/20 hover:text-error transition-colors">
+                              <span className="material-symbols-outlined text-[14px]">close</span>
+                            </button>
+                          )}
                         </span>
                       ))}
                       {(!config.jobTitles || config.jobTitles.length === 0) && <p className="text-outline/40 text-sm italic px-1">Sin cargos configurados.</p>}
@@ -375,9 +392,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
         {/* Footer */}
         <div className="px-5 py-4 border-t border-[#4A4453]/15 flex items-center justify-end gap-3">
           <button type="button" onClick={onClose} className="px-5 py-2 rounded-xl text-sm text-outline hover:text-white hover:bg-white/5 transition-colors font-medium">
-            {section === 'usuarios' ? 'Cerrar' : 'Cancelar'}
+            {section === 'usuarios' || !isAdmin ? 'Cerrar' : 'Cancelar'}
           </button>
-          {section !== 'usuarios' && <button onClick={handleSave} disabled={isLoading}
+          {section !== 'usuarios' && isAdmin && <button onClick={handleSave} disabled={isLoading}
             className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-lg ${
               saved ? 'bg-green-500/20 text-green-400 border border-green-500/20' : 'bg-primary text-on-primary hover:brightness-110 active:scale-95 shadow-primary/10'
             } disabled:opacity-50 disabled:pointer-events-none`}>

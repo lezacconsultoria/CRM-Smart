@@ -10,6 +10,7 @@ interface DashboardProps {
   onOpenNewContact?: () => void;
   contacts?: ContactData[];
   user?: User | null;
+  onUpdateContact?: (contact: ContactData) => Promise<void>;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ const PieTooltip = ({ active, payload }: any) => {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export default function Dashboard({ onOpenNewContact, contacts = [], user }: DashboardProps) {
+export default function Dashboard({ onOpenNewContact, contacts = [], user, onUpdateContact }: DashboardProps) {
   const canViewItem = (createdBy?: string) => {
     if (!user) return true;
     if (user.role === 'admin') return true;
@@ -83,7 +84,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
   const allReminders = contacts.flatMap(c =>
     (c.stages || []).flatMap(s =>
       s.notes
-        .filter(n => n.reminderDate && canViewItem(n.createdBy))
+        .filter(n => n.reminderDate && !n.reminderCompleted && canViewItem(n.createdBy))
         .map(n => ({ ...n, contactName: `${c.firstName} ${c.lastName}`, stageName: s.name, assignedTo: c.assignedTo }))
     )
   );
@@ -158,11 +159,30 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
+  const handleToggleReminderCompleted = async (contactId: string, noteId: string) => {
+    if (!onUpdateContact) return;
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    const updatedStages = contact.stages?.map(stage => ({
+      ...stage,
+      notes: stage.notes.map(note => 
+        note.id === noteId ? { 
+          ...note, 
+          reminderCompleted: true,
+          reminderCompletedAt: new Date().toISOString()
+        } : note
+      )
+    }));
+
+    await onUpdateContact({ ...contact, stages: updatedStages });
+  };
+
   contacts.forEach(contact => {
     contact.stages?.forEach(stage => {
       stage.notes.forEach(note => {
         if (!canViewItem(note.createdBy)) return;
-        if (note.reminderTimestamp) {
+        if (note.reminderTimestamp && !note.reminderCompleted) {
           if (note.reminderTimestamp < todayStart.getTime()) vencidas++;
           else if (note.reminderTimestamp >= todayStart.getTime() && note.reminderTimestamp < tomorrowStart.getTime()) activasHoy++;
         }
@@ -602,7 +622,20 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
                           {r.assignedTo && <span className="text-[9px] text-error/70 bg-error/10 px-1.5 py-px rounded-full font-medium flex-shrink-0">{r.assignedTo}</span>}
                         </div>
                       </div>
-                      <span className="text-[9px] text-error font-bold flex-shrink-0 whitespace-nowrap">{r.reminderDate}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[9px] text-error font-bold whitespace-nowrap">{r.reminderDate}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const contact = contacts.find(c => (c.stages || []).some(s => s.notes.some(n => n.id === r.id)));
+                            if (contact && contact.id) handleToggleReminderCompleted(contact.id, r.id);
+                          }}
+                          className="w-6 h-6 rounded-full bg-error/10 text-error hover:bg-error hover:text-white transition-all flex items-center justify-center"
+                          title="Marcar como realizado"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">done</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </>
@@ -621,7 +654,20 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user }: Das
                           {r.assignedTo && <span className="text-[9px] text-amber-400/70 bg-amber-400/10 px-1.5 py-px rounded-full font-medium flex-shrink-0">{r.assignedTo}</span>}
                         </div>
                       </div>
-                      <span className="text-[9px] text-amber-400 font-bold flex-shrink-0 whitespace-nowrap">{r.reminderDate}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[9px] text-amber-400 font-bold whitespace-nowrap">{r.reminderDate}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const contact = contacts.find(c => (c.stages || []).some(s => s.notes.some(n => n.id === r.id)));
+                            if (contact && contact.id) handleToggleReminderCompleted(contact.id, r.id);
+                          }}
+                          className="w-6 h-6 rounded-full bg-amber-400/10 text-amber-400 hover:bg-amber-400 hover:text-white transition-all flex items-center justify-center"
+                          title="Marcar como realizado"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">done</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </>

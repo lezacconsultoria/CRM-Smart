@@ -23,6 +23,8 @@ export interface Note {
   reminderDays?: number;
   reminderDate?: string;
   reminderTimestamp?: number;
+  reminderCompleted?: boolean;
+  reminderCompletedAt?: string;
   createdBy?: string;
 }
 

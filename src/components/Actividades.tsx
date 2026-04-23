@@ -18,6 +18,7 @@ interface ActividadesProps {
   contacts: ContactData[];
   onSelectContact: (contact: ContactData) => void;
   user: import('../types').User | null;
+  onUpdateContact?: (contact: ContactData) => Promise<void>;
 }
 
 type Tab = 'hoy' | 'semana' | 'proximos' | 'vencidos';
@@ -29,7 +30,7 @@ function endOfDay(d: Date): number {
   const x = new Date(d); x.setHours(23, 59, 59, 999); return x.getTime();
 }
 
-export default function Actividades({ contacts, onSelectContact, user }: ActividadesProps) {
+export default function Actividades({ contacts, onSelectContact, user, onUpdateContact }: ActividadesProps) {
   const [activeTab, setActiveTab] = useState<Tab>('hoy');
   const [searchQuery, setSearchQuery] = useState('');
   const [userFilter, setUserFilter] = useState('Todos');
@@ -38,11 +39,30 @@ export default function Actividades({ contacts, onSelectContact, user }: Activid
   const todayEnd = endOfDay(new Date());
   const weekEnd = todayEnd + 6 * 24 * 60 * 60 * 1000;
 
+  const handleToggleReminderCompleted = async (contactId: string, noteId: string) => {
+    if (!onUpdateContact) return;
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    const updatedStages = contact.stages?.map(stage => ({
+      ...stage,
+      notes: stage.notes.map(note => 
+        note.id === noteId ? { 
+          ...note, 
+          reminderCompleted: true,
+          reminderCompletedAt: new Date().toISOString()
+        } : note
+      )
+    }));
+
+    await onUpdateContact({ ...contact, stages: updatedStages });
+  };
+
   const allActivities = useMemo<ActivityItem[]>(() => {
     return contacts.flatMap(c =>
       (c.stages || []).flatMap(s =>
         s.notes
-          .filter(n => n.reminderDate && n.reminderTimestamp)
+          .filter(n => n.reminderDate && n.reminderTimestamp && !n.reminderCompleted)
           .map(n => ({
             noteId: n.id,
             text: n.text,
@@ -242,9 +262,25 @@ export default function Actividades({ contacts, onSelectContact, user }: Activid
                   </div>
                 </div>
 
-                <span className="material-symbols-outlined text-outline/30 group-hover:text-primary/50 text-[18px] mt-1 flex-shrink-0 transition-colors">
-                  chevron_right
-                </span>
+                <div className="flex flex-col items-center gap-2 mt-1">
+                  <span className="material-symbols-outlined text-outline/30 group-hover:text-primary/50 text-[18px] transition-colors">
+                    chevron_right
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleReminderCompleted(item.contactId, item.noteId);
+                    }}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                      isVencido 
+                        ? 'bg-error/10 text-error hover:bg-error hover:text-white' 
+                        : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'
+                    }`}
+                    title="Marcar como realizado"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">done</span>
+                  </button>
+                </div>
               </button>
             );
           })}

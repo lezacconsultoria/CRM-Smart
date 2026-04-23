@@ -311,7 +311,7 @@ export default function App() {
             </div>
           ) : (
             <>
-              {currentView === 'dashboard' && <Dashboard onOpenNewContact={handleOpenNewContact} contacts={filteredContacts} user={currentUser} />}
+              {currentView === 'dashboard' && <Dashboard onOpenNewContact={handleOpenNewContact} contacts={filteredContacts} user={currentUser} onUpdateContact={handleSaveContact} />}
               {currentView === 'contacts' && (
                 <Contacts 
                   onViewChange={setCurrentView} 
@@ -348,6 +348,7 @@ export default function App() {
                   contacts={filteredContacts}
                   onSelectContact={handleSelectContact}
                   user={currentUser}
+                  onUpdateContact={handleSaveContact}
                 />
               )}
             </>
@@ -365,7 +366,7 @@ export default function App() {
         count={contactsToDelete.length > 1 ? contactsToDelete.length : undefined}
         isLoading={isDeleting}
       />
-        <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
+        <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} user={currentUser} />
       </Suspense>
     </>
     </LanguageProvider>

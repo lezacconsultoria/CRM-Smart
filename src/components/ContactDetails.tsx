@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ContactData, Note, StageData, User, CompetitionData, TrackingRecord, ContactRelation, CompanyConfig } from '../types';
 import { pbService } from '../services/pbService';
+import { NoteDeleteModal } from './NoteDeleteModal';
 
 interface ContactDetailsProps {
   contact: ContactData | null;
@@ -92,6 +93,10 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
   const [newTrackingCompany, setNewTrackingCompany] = useState('');
   const [newTrackingJobTitle, setNewTrackingJobTitle] = useState('');
 
+  // Edit note state
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteText, setEditNoteText] = useState('');
+
   // Relations state
   const [showRelationSearch, setShowRelationSearch] = useState(false);
   const [relationSearchQuery, setRelationSearchQuery] = useState('');
@@ -101,6 +106,7 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
   const [expandedTracking, setExpandedTracking] = useState<string | null>(null);
 
   const [companyConfig, setCompanyConfig] = useState<CompanyConfig | null>(null);
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -209,6 +215,67 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
     setSelectedReminder(null);
     setSelectedReminderDate('');
     setSelectedTag(null);
+  };
+
+  const handleEditNote = (note: Note) => {
+    setEditingNoteId(note.id);
+    setEditNoteText(note.text);
+  };
+
+  const handleSaveEditedNote = () => {
+    if (!editingNoteId || !editNoteText.trim()) return;
+
+    const updatedStages = stages.map(stage => ({
+      ...stage,
+      notes: stage.notes.map(note => 
+        note.id === editingNoteId ? { ...note, text: editNoteText } : note
+      )
+    }));
+
+    setStages(updatedStages);
+    if (contact) {
+      onUpdateContact({ ...contact, stages: updatedStages });
+    }
+    setEditingNoteId(null);
+    setEditNoteText('');
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    setNoteToDelete(noteId);
+  };
+
+  const confirmDeleteNote = () => {
+    if (!noteToDelete) return;
+    const noteId = noteToDelete;
+
+    const updatedStages = stages.map(stage => ({
+      ...stage,
+      notes: stage.notes.filter(note => note.id !== noteId)
+    }));
+
+    setStages(updatedStages);
+    if (contact) {
+      onUpdateContact({ ...contact, stages: updatedStages });
+    }
+    setNoteToDelete(null);
+  };
+
+  const handleToggleReminderCompleted = (noteId: string) => {
+    const updatedStages = stages.map(stage => ({
+      ...stage,
+      notes: stage.notes.map(note => 
+        note.id === noteId ? { 
+          ...note, 
+          reminderCompleted: !note.reminderCompleted,
+          reminderCompletedAt: !note.reminderCompleted ? new Date().toISOString() : undefined
+        } : note
+      )
+    }));
+
+    setStages(updatedStages);
+    if (contact) {
+      onUpdateContact({ ...contact, stages: updatedStages });
+    }
   };
 
   const handleNextStage = () => {
@@ -1010,13 +1077,80 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-outline">{note.date}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] text-outline">{note.date}</span>
+                            {canViewItem(note.createdBy) && editingNoteId !== note.id && (
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={() => handleEditNote(note)}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-primary/10 text-outline hover:text-primary transition-all"
+                                  title="Editar observación"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">edit</span>
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteNote(note.id)}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-error/10 text-outline hover:text-error transition-all"
+                                  title="Eliminar observación"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap">{note.text}</p>
+                        
+                        {editingNoteId === note.id ? (
+                          <div className="space-y-3 animate-in fade-in zoom-in duration-200">
+                            <textarea
+                              value={editNoteText}
+                              onChange={(e) => setEditNoteText(e.target.value)}
+                              className="w-full bg-surface-container-highest border border-primary/30 rounded-lg p-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary min-h-[100px] resize-none"
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => { setEditingNoteId(null); setEditNoteText(''); }}
+                                className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-outline hover:text-white transition-colors"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={handleSaveEditedNote}
+                                className="px-4 py-1.5 rounded-lg bg-primary text-on-primary text-[11px] font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/10"
+                              >
+                                Guardar Cambios
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap">{note.text}</p>
+                        )}
+
                         {note.reminderDate && (
-                          <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary-container/10 border border-secondary-container/20 text-secondary-container text-[10px] font-bold">
-                            <span className="material-symbols-outlined text-[12px]">notification_important</span>
-                            Recordatorio: {note.reminderDate} ({note.reminderDays} días hábiles)
+                          <div className={`mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-all ${
+                            note.reminderCompleted 
+                              ? 'bg-green-500/10 border-green-500/30 text-green-500' 
+                              : 'bg-secondary-container/10 border-secondary-container/20 text-secondary-container'
+                          } text-[10px] font-bold`}>
+                            <span className="material-symbols-outlined text-[12px]">
+                              {note.reminderCompleted ? 'check_circle' : 'notification_important'}
+                            </span>
+                            Recordatorio: {note.reminderDate} {note.reminderDays && `(${note.reminderDays} días hábiles)`}
+                            {note.reminderCompleted && ' — Realizado'}
+                            <button
+                              onClick={() => handleToggleReminderCompleted(note.id)}
+                              className={`ml-2 w-5 h-5 rounded-full flex items-center justify-center transition-all ${
+                                note.reminderCompleted 
+                                  ? 'bg-green-500 text-white hover:bg-green-600' 
+                                  : 'bg-surface-container-highest text-outline hover:text-white'
+                              }`}
+                              title={note.reminderCompleted ? "Marcar como pendiente" : "Marcar como realizado"}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">
+                                {note.reminderCompleted ? 'undo' : 'done'}
+                              </span>
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1048,20 +1182,82 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
                               <div className="relative z-10 w-6 h-6 rounded-full bg-surface-container border border-outline-variant/30 flex items-center justify-center mt-1">
                                 <div className="w-1.5 h-1.5 rounded-full bg-outline"></div>
                               </div>
-                              <div className="flex-1 bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/5">
+                              <div className="flex-1 bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/5 group">
                                 <div className="flex items-center justify-between mb-1">
-                                  <p className="text-[10px] text-outline">{note.date}</p>
-                                  {note.tag && (
-                                    <span className="px-1.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-[8px] font-bold border border-outline-variant/20">
-                                      {note.tag}
-                                    </span>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-[10px] text-outline">{note.date}</p>
+                                    {note.tag && (
+                                      <span className="px-1.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-[8px] font-bold border border-outline-variant/20">
+                                        {note.tag}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {canViewItem(note.createdBy) && editingNoteId !== note.id && (
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button 
+                                        onClick={() => handleEditNote(note)}
+                                        className="w-6 h-6 rounded flex items-center justify-center hover:bg-primary/10 text-outline hover:text-primary transition-all"
+                                        title="Editar observación"
+                                      >
+                                        <span className="material-symbols-outlined text-[14px]">edit</span>
+                                      </button>
+                                      <button 
+                                        onClick={() => handleDeleteNote(note.id)}
+                                        className="w-6 h-6 rounded flex items-center justify-center hover:bg-error/10 text-outline hover:text-error transition-all"
+                                        title="Eliminar observación"
+                                      >
+                                        <span className="material-symbols-outlined text-[14px]">delete</span>
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
-                                <p className="text-xs text-on-surface-variant whitespace-pre-wrap">{note.text}</p>
+
+                                {editingNoteId === note.id ? (
+                                  <div className="space-y-2 animate-in fade-in zoom-in duration-200">
+                                    <textarea
+                                      value={editNoteText}
+                                      onChange={(e) => setEditNoteText(e.target.value)}
+                                      className="w-full bg-surface-container-high border border-primary/30 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px] resize-none"
+                                      autoFocus
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                      <button
+                                        onClick={() => { setEditingNoteId(null); setEditNoteText(''); }}
+                                        className="px-2 py-1 rounded-md text-[10px] font-bold text-outline hover:text-white transition-colors"
+                                      >
+                                        Cancelar
+                                      </button>
+                                      <button
+                                        onClick={handleSaveEditedNote}
+                                        className="px-3 py-1 rounded-md bg-primary text-on-primary text-[10px] font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/10"
+                                      >
+                                        Guardar
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-on-surface-variant whitespace-pre-wrap">{note.text}</p>
+                                )}
+
                                 {note.reminderDate && (
-                                  <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-secondary-container/10 border border-secondary-container/20 text-secondary-container text-[9px] font-bold">
-                                    <span className="material-symbols-outlined text-[10px]">notification_important</span>
+                                  <div className={`mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded border transition-all ${
+                                    note.reminderCompleted 
+                                      ? 'bg-green-500/10 border-green-500/30 text-green-500' 
+                                      : 'bg-secondary-container/10 border-secondary-container/20 text-secondary-container'
+                                  } text-[9px] font-bold`}>
+                                    <span className="material-symbols-outlined text-[10px]">
+                                      {note.reminderCompleted ? 'check_circle' : 'notification_important'}
+                                    </span>
                                     Recordatorio: {note.reminderDate}
+                                    <button
+                                      onClick={() => handleToggleReminderCompleted(note.id)}
+                                      className="ml-1.5 text-outline hover:text-white transition-colors"
+                                      title={note.reminderCompleted ? "Marcar como pendiente" : "Marcar como realizado"}
+                                    >
+                                      <span className="material-symbols-outlined text-[12px]">
+                                        {note.reminderCompleted ? 'undo' : 'done'}
+                                      </span>
+                                    </button>
                                   </div>
                                 )}
                               </div>
@@ -1474,6 +1670,12 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
           )}
         </div>
       </div>
+
+      <NoteDeleteModal 
+        isOpen={!!noteToDelete} 
+        onClose={() => setNoteToDelete(null)} 
+        onConfirm={confirmDeleteNote} 
+      />
     </div>
   );
 }

@@ -165,7 +165,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
   };
 
   return (
-    <div className="pt-6 px-4 md:pt-8 md:px-8 pb-24 md:pb-12 min-h-screen">
+    <div className="pt-6 px-4 md:pt-8 md:px-4 pb-24 md:pb-12 min-h-screen">
       {/* Header & Statistics (Strategic Asymmetry) */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 md:gap-8 mb-8 md:mb-10">
         <div className="max-w-2xl">
@@ -418,11 +418,11 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
 
       {/* Main Contacts Table */}
       <div className="bg-surface-container rounded-2xl overflow-hidden border border-outline-variant/10 shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-surface-container-high border-b border-outline-variant/15">
-                <th className="px-4 py-3 w-10 text-center">
+                <th className="px-2 py-3 w-10 text-center">
                   <div 
                     onClick={(e) => { e.stopPropagation(); toggleSelectAll(); }}
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer mx-auto ${
@@ -438,16 +438,15 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                     )}
                   </div>
                 </th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Contacto</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Empresa / Tipo</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Vendedor</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Origen</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Base</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Ubicación</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Información</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Estado</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-outline font-bold">Próxima Acción</th>
-                <th className="px-6 py-3 text-[10px] uppercase tracking-widest text-outline font-bold text-right">Acciones</th>
+                <th className="px-2 py-3 text-[9px] uppercase tracking-wider text-outline font-bold">Contacto</th>
+                <th className="px-2 py-3 text-[9px] uppercase tracking-wider text-outline font-bold">Empresa / Tipo</th>
+                <th className="px-2 py-3 text-[9px] uppercase tracking-wider text-outline font-bold">Vendedor</th>
+                <th className="px-2 py-3 text-[9px] uppercase tracking-wider text-outline font-bold">Origen</th>
+                <th className="px-2 py-3 text-[9px] uppercase tracking-wider text-outline font-bold">Ubicación</th>
+                <th className="px-2 py-3 text-[9px] uppercase tracking-wider text-outline font-bold">Información</th>
+                <th className="px-2 py-3 text-[9px] uppercase tracking-wider text-outline font-bold">Estado</th>
+                <th className="px-2 py-3 text-[9px] uppercase tracking-wider text-outline font-bold">Próxima Acción</th>
+                <th className="px-3 py-3 text-[9px] uppercase tracking-wider text-outline font-bold text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
@@ -457,7 +456,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                   className={`hover:bg-surface-container-highest/40 transition-colors duration-150 group cursor-pointer ${selectedIds.has(contact.id!) ? 'bg-primary/5' : ''}`}
                   onClick={() => onSelectContact && onSelectContact(contact)}
                 >
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-2 py-2.5 text-center">
                     <div 
                       onClick={(e) => toggleSelect(contact.id!, e)}
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer mx-auto ${
@@ -471,7 +470,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -492,54 +491,40 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-on-surface-variant font-medium truncate max-w-[120px]">{contact.company || 'Sin empresa'}</span>
+                  <td className="px-2 py-2.5">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-on-surface-variant font-medium truncate max-w-[100px]">{contact.company || 'Sin empresa'}</span>
                       </div>
                       {contact.companyType && (
-                        <span className="w-fit px-1.5 py-0.5 bg-outline-variant/10 text-outline text-[9px] font-bold uppercase rounded border border-outline-variant/20 italic">
+                        <span className="w-fit px-1 py-0 bg-outline-variant/10 text-outline text-[8px] font-bold uppercase rounded border border-outline-variant/20 italic">
                           {contact.companyType}
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 min-w-[100px]">
-                      <span className="material-symbols-outlined text-[14px] text-primary-fixed-dim">person</span>
-                      <span className="text-xs text-on-surface-variant truncate max-w-[120px]" title={contact.assignedTo || 'Sin asignar'}>
+                  <td className="px-2 py-2.5">
+                    <div className="flex items-center gap-1 min-w-[80px]">
+                      <span className="material-symbols-outlined text-[12px] text-primary-fixed-dim">person</span>
+                      <span className="text-[11px] text-on-surface-variant truncate max-w-[90px]" title={contact.assignedTo || 'Sin asignar'}>
                         {contact.assignedTo || '—'}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[14px] text-primary">
+                  <td className="px-2 py-2.5">
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px] text-primary">
                         {contact.source === 'linkedin' ? 'link' : contact.source === 'whatsapp' ? 'chat' : contact.source === 'email' ? 'mail' : 'language'}
                       </span>
-                      <span className="text-xs text-on-surface-variant capitalize">
+                      <span className="text-[11px] text-on-surface-variant capitalize">
                         {contact.source || 'Directo'}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 min-w-[80px]">
-                      {contact.dbSource ? (
-                        <>
-                          <span className="material-symbols-outlined text-[14px] text-secondary">database</span>
-                          <span className="text-xs text-on-surface-variant truncate max-w-[110px]" title={contact.dbSource}>
-                            {contact.dbSource}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-xs text-outline/30">—</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-                      <span className="material-symbols-outlined text-[14px] text-outline">location_on</span>
-                      <span className="truncate max-w-[120px]">
+                  <td className="px-2 py-2.5">
+                    <div className="flex items-center gap-1 text-[11px] text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[12px] text-outline">location_on</span>
+                      <span className="truncate max-w-[100px]">
                         {contact.province}{contact.province && contact.country ? ', ' : ''}{contact.country || (contact.province ? '' : 'Global')}
                       </span>
                     </div>
@@ -589,40 +574,40 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
 
                       return (
                         <div className="flex flex-col gap-0.5">
-                          <div className={`flex items-center gap-1.5 text-xs ${colorClass}`}>
-                            <span className={`material-symbols-outlined text-[14px] ${iconColor}`}>
+                          <div className={`flex items-center gap-1 text-[11px] ${colorClass}`}>
+                            <span className={`material-symbols-outlined text-[12px] ${iconColor}`}>
                               {nextAction.type === 'task' ? 'task_alt' : 'alarm'}
                             </span>
-                            <span className="truncate max-w-[150px]" title={nextAction.title}>{nextAction.title}</span>
+                            <span className="truncate max-w-[120px]" title={nextAction.title}>{nextAction.title}</span>
                           </div>
-                          <span className="text-[10px] text-outline ml-5">{nextAction.date}</span>
+                          <span className="text-[9px] text-outline ml-4">{nextAction.date}</span>
                         </div>
                       );
                     })()}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <td className="px-3 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={(e) => { e.stopPropagation(); onSelectContact && onSelectContact(contact); }} 
-                        className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-primary hover:bg-primary/10 transition-colors" 
+                        className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-primary hover:bg-primary/10 transition-colors" 
                         title="Ver detalles"
                       >
-                        <span className="material-symbols-outlined text-[16px]">visibility</span>
+                        <span className="material-symbols-outlined text-[15px]">visibility</span>
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); onEditContact && onEditContact(contact); }} 
-                        className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-secondary hover:bg-secondary/10 transition-colors" 
+                        className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-secondary hover:bg-secondary/10 transition-colors" 
                         title="Modificar"
                       >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                        <span className="material-symbols-outlined text-[15px]">edit</span>
                       </button>
                       {(!user || user.role === 'admin') && (
                         <button 
                           onClick={(e) => { e.stopPropagation(); contact.id && onDeleteContact && onDeleteContact(contact.id); }} 
-                          className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-error hover:bg-error/10 transition-colors" 
+                          className="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-outline hover:text-error hover:bg-error/10 transition-colors" 
                           title="Eliminar"
                         >
-                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                          <span className="material-symbols-outlined text-[15px]">delete</span>
                         </button>
                       )}
                     </div>

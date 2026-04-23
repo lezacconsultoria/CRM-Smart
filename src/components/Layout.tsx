@@ -60,7 +60,7 @@ export default function Layout({ children, currentView, onNavigate, onOpenNewCon
         />
       )}
 
-      <main className="flex-1 md:ml-64 w-full min-h-screen overflow-x-hidden">
+      <main className="flex-1 min-w-0 min-h-screen">
         {children}
       </main>
       

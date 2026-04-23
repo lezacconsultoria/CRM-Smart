@@ -54,7 +54,7 @@ export default function Sidebar({ currentView, onNavigate, onOpenNewContact, onO
   );
 
   return (
-    <aside className={`fixed left-0 top-0 h-screen flex flex-col z-40 w-64 border-r border-[#4A4453]/15 bg-[#1C1B1C] transition-transform duration-300 shadow-2xl shadow-black/40 font-['Manrope'] tracking-tight ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+    <aside className={`fixed md:sticky left-0 top-0 h-screen flex flex-col z-40 w-64 flex-shrink-0 border-r border-[#4A4453]/15 bg-[#1C1B1C] transition-transform duration-300 shadow-2xl shadow-black/40 font-['Manrope'] tracking-tight ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
       <div className="p-5 flex-1 overflow-y-auto">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-6">
