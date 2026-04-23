@@ -216,8 +216,8 @@ export default function NewContactModal({ isOpen, onClose, onSave, initialData, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface-container w-full max-w-xl rounded-2xl border border-outline-variant/20 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+      <div className="bg-surface-container w-full sm:max-w-xl sm:rounded-2xl rounded-t-3xl border border-outline-variant/20 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         <div className="p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low">
           <div>
             <h2 className="text-xl font-bold font-headline text-white">

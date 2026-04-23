@@ -157,11 +157,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
           </nav>
 
           {/* Mobile tab strip */}
-          <div className="sm:hidden absolute left-0 right-0" style={{ top: '68px' }}>
-            <div className="flex border-b border-[#4A4453]/15 px-4">
+          <div className="sm:hidden absolute left-0 right-0 bg-[#1C1B1C] z-10" style={{ top: '65px' }}>
+            <div className="flex border-b border-[#4A4453]/15 px-2 overflow-x-auto no-scrollbar">
               {NAV.map(n => (
                 <button key={n.id} onClick={() => setSection(n.id)}
-                  className={`flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                  className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
                     section === n.id ? 'text-primary border-b-2 border-primary' : 'text-outline'
                   }`}>
                   {n.label}
@@ -286,9 +286,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                     {/* Formulario nuevo usuario */}
                     <div className="bg-[#131314] border border-[#4A4453]/20 rounded-2xl p-4 space-y-3 mb-4">
                       <p className="text-[11px] uppercase tracking-widest text-outline/50 font-bold">Nuevo usuario</p>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input value={newUser.name} onChange={e => setNewUser(u => ({ ...u, name: e.target.value }))}
-                          className="col-span-2 bg-[#1C1B1C] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-3 py-2.5 outline-none"
+                          className="sm:col-span-2 bg-[#1C1B1C] border border-[#4A4453]/20 focus:border-primary/40 transition-colors text-sm text-white placeholder:text-outline/30 rounded-xl px-3 py-2.5 outline-none"
                           placeholder="Nombre completo" />
                         <input value={newUser.email} onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))}
                           type="email"

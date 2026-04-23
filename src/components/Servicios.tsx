@@ -356,8 +356,8 @@ export default function Servicios() {
 
       {/* Editor Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-surface-container rounded-3xl border border-outline-variant/20 w-full max-w-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-surface-container sm:rounded-3xl rounded-t-3xl border border-outline-variant/20 w-full sm:max-w-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col max-h-[92vh] animate-in slide-in-from-bottom duration-300">
             <div className="p-6 md:p-8 border-b border-outline-variant/10 flex justify-between items-center bg-surface-container-high">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">

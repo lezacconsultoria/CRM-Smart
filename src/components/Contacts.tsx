@@ -174,24 +174,24 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
             <span className="material-symbols-outlined text-[12px]">chevron_right</span>
             <span className="text-primary-fixed-dim">Gestión de Contactos</span>
           </nav>
-          <h2 className="text-4xl font-extrabold font-headline tracking-tight text-white mb-2">Base Viva de Contactos</h2>
+          <h2 className="text-2xl md:text-4xl font-extrabold font-headline tracking-tight text-white mb-2">Base Viva de Contactos</h2>
         </div>
         
-        <div className="flex flex-wrap gap-3 w-full md:w-auto">
-          <div className="bg-surface-container-low px-5 py-3 rounded-lg border border-outline-variant/10 flex flex-col justify-center min-w-[140px]">
-            <p className="text-[10px] uppercase tracking-wider text-outline mb-1">Total Contactos</p>
+        <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
+          <div className="bg-surface-container-low px-3 md:px-5 py-2 md:py-3 rounded-lg border border-outline-variant/10 flex flex-col justify-center min-w-[120px] md:min-w-[140px] flex-1 md:flex-none">
+            <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-outline mb-0.5 md:mb-1">Total Contactos</p>
             <div className="flex items-baseline gap-2">
-              <p className="text-2xl font-bold font-headline leading-none text-white">{contacts.length}</p>
-              <span className="text-[10px] text-secondary font-medium tracking-wide">ACTIVOS</span>
+              <p className="text-lg md:text-2xl font-bold font-headline leading-none text-white">{contacts.length}</p>
+              <span className="text-[9px] md:text-[10px] text-secondary font-medium tracking-wide">ACTIVOS</span>
             </div>
           </div>
-          <div className="bg-surface-container-low px-5 py-3 rounded-lg border border-outline-variant/10 flex flex-col justify-center min-w-[140px]">
-            <p className="text-[10px] uppercase tracking-wider text-outline mb-1">Tasa Conversión</p>
+          <div className="bg-surface-container-low px-3 md:px-5 py-2 md:py-3 rounded-lg border border-outline-variant/10 flex flex-col justify-center min-w-[120px] md:min-w-[140px] flex-1 md:flex-none">
+            <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-outline mb-0.5 md:mb-1">Tasa Conversión</p>
             <div className="flex items-baseline gap-2">
-              <p className="text-2xl font-bold font-headline leading-none text-primary">
+              <p className="text-lg md:text-2xl font-bold font-headline leading-none text-primary">
                 {contacts.length > 0 ? ((contacts.filter(c => c.status === 'won').length / contacts.length) * 100).toFixed(1) : '0'}%
               </p>
-              <span className="text-[10px] text-primary/70 font-medium tracking-wide">ÉXITO</span>
+              <span className="text-[9px] md:text-[10px] text-primary/70 font-medium tracking-wide">ÉXITO</span>
             </div>
           </div>
         </div>
@@ -257,7 +257,7 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2 justify-end lg:ml-4">
+          <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end lg:ml-4">
             <button 
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
@@ -265,26 +265,26 @@ export default function Contacts({ onViewChange, onOpenNewContact, onOpenImportM
               }`}
             >
               <span className="material-symbols-outlined text-[18px]">filter_list</span>
-              <span className="hidden sm:inline">Filtros Avanzados</span>
+              <span className="xs:inline">Filtros</span>
             </button>
             <div className="hidden md:block w-px h-6 bg-outline-variant/20 mx-1"></div>
             <button className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-outline hover:text-white transition-colors">
               <span className="material-symbols-outlined text-[18px]">download</span>
-              <span className="hidden sm:inline">Exportar</span>
+              <span className="hidden xs:inline">Exportar</span>
             </button>
             <button 
               onClick={onOpenImportModal}
-              className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold bg-surface-container-highest text-white rounded-lg hover:bg-surface-container-high transition-colors border border-outline-variant/20 ml-1"
+              className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold bg-surface-container-highest text-white rounded-lg hover:bg-surface-container-high transition-colors border border-outline-variant/20"
             >
               <span className="material-symbols-outlined text-[18px]">upload</span>
-              <span className="hidden sm:inline">Importar</span>
+              <span className="hidden xs:inline">Importar</span>
             </button>
             <button 
               onClick={onOpenNewContact}
               className="flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-bold bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/10 active:scale-95 whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
-              <span className="hidden sm:inline">Nuevo Contacto</span>
+              <span className="hidden xs:inline">Nuevo</span>
             </button>
           </div>
         </div>

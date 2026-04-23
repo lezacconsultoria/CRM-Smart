@@ -324,13 +324,13 @@ export default function ImportContactModal({ isOpen, onClose, onImport }: Import
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div 
         className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
       
-      <div className="relative w-full max-w-2xl bg-surface-container rounded-3xl border border-outline-variant/20 shadow-2xl shadow-black overflow-hidden flex flex-col max-h-[90vh] animate-slide-up">
+      <div className="relative w-full sm:max-w-2xl bg-surface-container sm:rounded-3xl rounded-t-3xl border border-outline-variant/20 shadow-2xl shadow-black overflow-hidden flex flex-col max-h-[92vh] animate-slide-up">
         {showDuplicateView ? (
           <>
             <div className="p-8 text-center flex-1 overflow-y-auto custom-scrollbar">

@@ -503,9 +503,9 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
                 <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
               </div>
             </div>
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-2">
-                <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white font-headline">
+            <div className="flex-1 text-center md:text-left min-w-0">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-3 mb-2">
+                <h1 className="text-2xl md:text-4xl font-black tracking-tight text-white font-headline break-words">
                   {contact.firstName} {contact.lastName}
                 </h1>
                 <div className="flex items-center gap-2">
@@ -523,10 +523,10 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
               </p>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full md:w-auto">
               <button 
                 onClick={onEdit}
-                className="px-6 py-3 bg-white text-black rounded-2xl text-sm font-black hover:bg-primary hover:text-on-primary transition-all shadow-xl shadow-white/5 flex items-center gap-2"
+                className="w-full md:w-auto px-6 py-3 bg-white text-black rounded-2xl text-sm font-black hover:bg-primary hover:text-on-primary transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">edit</span>
                 Editar Perfil
@@ -615,7 +615,7 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
             </div>
 
             {/* Stages Tabs */}
-            <div className="flex flex-col sm:flex-row gap-2 mb-6">
+            <div className="flex flex-row overflow-x-auto no-scrollbar scroll-smooth gap-2 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
               {stages.map(stage => (
                 <div 
                   key={stage.id}
@@ -1344,7 +1344,7 @@ export default function ContactDetails({ contact, onEdit, onBack, onUpdateContac
               </div>
 
               {/* Quick Actions Grid */}
-              <div className="grid grid-cols-3 gap-3 pt-4 border-t border-outline-variant/10">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-4 border-t border-outline-variant/10">
                 <a 
                   href={`https://wa.me/${(contact.countryCode || '54').replace('+', '')}${contact.phone?.replace(/\s/g, '')}`}
                   target="_blank"

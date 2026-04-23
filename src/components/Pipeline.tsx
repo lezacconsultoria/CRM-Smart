@@ -91,31 +91,36 @@ export default function Pipeline({ contacts, onSelectContact, onOpenNewContact, 
 
   return (
     <div className="pt-6 px-4 md:pt-8 md:px-8 pb-24 md:pb-12 min-h-screen">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-headline font-bold">Pipeline de Ventas</h1>
-          <p className="text-outline text-sm mt-1">
+          <h1 className="text-xl md:text-2xl font-headline font-bold">Pipeline de Ventas</h1>
+          <p className="text-outline text-[11px] md:text-sm mt-0.5 md:mt-1">
             {filtered.length} oportunidades activas
             {totalPipeline > 0 && (
-              <span> · <span className="text-primary font-semibold">${totalPipeline.toLocaleString('es-AR')}</span> en pipeline</span>
+              <span className="hidden xs:inline"> · <span className="text-primary font-semibold">${totalPipeline.toLocaleString('es-AR')}</span> en pipeline</span>
             )}
           </p>
+          {totalPipeline > 0 && (
+            <p className="text-outline text-[11px] mt-0.5 xs:hidden">
+              <span className="text-primary font-semibold">${totalPipeline.toLocaleString('es-AR')}</span> en pipeline
+            </p>
+          )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {allUsers.length > 2 && (
             <select
               value={userFilter}
               onChange={e => setUserFilter(e.target.value)}
-              className="bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+              className="flex-1 sm:flex-none bg-surface-container border border-outline-variant/30 rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-sm text-on-surface focus:outline-none focus:border-primary/50"
             >
               {allUsers.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           )}
           <button
             onClick={onOpenNewContact}
-            className="bg-intelligence text-on-primary px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-primary/10"
+            className="flex-1 sm:flex-none bg-intelligence text-on-primary px-3 py-1.5 md:px-4 md:py-2 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-primary/10 whitespace-nowrap"
           >
-            <span className="material-symbols-outlined text-sm">add</span>
+            <span className="material-symbols-outlined text-[16px] md:text-sm">add</span>
             Nuevo Contacto
           </button>
         </div>
@@ -138,9 +143,9 @@ export default function Pipeline({ contacts, onSelectContact, onOpenNewContact, 
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="flex overflow-x-auto gap-4 pb-6 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0 lg:grid lg:grid-cols-4 lg:gap-6">
           {columns.map(col => (
-            <div key={col.id} className="flex flex-col">
+            <div key={col.id} className="flex flex-col flex-shrink-0 w-[280px] sm:w-[320px] lg:w-auto">
               <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${col.bgColor} border ${col.borderColor} mb-2`}>
                 <div className="flex items-center gap-2">
                   <span

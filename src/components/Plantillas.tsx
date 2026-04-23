@@ -214,30 +214,25 @@ export default function Plantillas() {
             </div>
 
             <h3 className="font-headline font-bold text-sm uppercase tracking-widest text-outline mb-4">Categorías</h3>
-            <div className="space-y-1">
+            <div className="flex border-b border-[#4A4453]/15 px-2 overflow-x-auto no-scrollbar mb-6 -mx-6">
               {[
                 { name: 'All', label: 'Todas', icon: 'apps' },
                 { name: 'Primer Contacto', label: 'Primer Contacto', icon: 'handshake' },
-                { name: 'Seguimiento', label: 'Seguimientoo', icon: 'rebase_edit' },
+                { name: 'Seguimiento', label: 'Seguimiento', icon: 'rebase_edit' },
                 { name: 'Post Reunión', label: 'Post Reunión', icon: 'groups' },
                 { name: 'Cierre', label: 'Cierre de Trato', icon: 'verified' }
               ].map(cat => (
                 <button 
                   key={cat.name}
                   onClick={() => setActiveCategory(cat.name)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all ${
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all whitespace-nowrap ${
                     activeCategory === cat.name 
-                      ? 'bg-primary/20 text-primary font-bold border border-primary/20' 
-                      : 'text-on-surface-variant hover:bg-surface-container-low'
+                      ? 'text-primary border-b-2 border-primary font-bold' 
+                      : 'text-on-surface-variant hover:text-white'
                   }`}
                 >
-                  <span className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: activeCategory === cat.name ? "'FILL' 1" : "'FILL' 0" }}>{cat.icon}</span>
-                    <span className="text-sm">{cat.label}</span>
-                  </span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded ${activeCategory === cat.name ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-outline'}`}>
-                    {cat.name === 'All' ? templates.length : templates.filter(t => t.tagLabel === cat.name || (cat.name === 'Cierre' && t.tagLabel === 'Cierre de Trato')).length}
-                  </span>
+                  <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: activeCategory === cat.name ? "'FILL' 1" : "'FILL' 0" }}>{cat.icon}</span>
+                  <span className="text-xs uppercase tracking-wider font-semibold">{cat.label}</span>
                 </button>
               ))}
             </div>
@@ -331,8 +326,8 @@ export default function Plantillas() {
 
       {/* Edit Template Modal */}
       {editingTemplate && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface-container rounded-2xl border border-outline-variant/20 w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-surface-container sm:rounded-2xl rounded-t-3xl border border-outline-variant/20 w-full sm:max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in slide-in-from-bottom duration-300">
             <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center bg-surface-container-high">
               <h2 className="text-xl font-headline font-bold text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">

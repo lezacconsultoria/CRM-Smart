@@ -125,10 +125,10 @@ export default function Actividades({ contacts, onSelectContact, user, onUpdateC
 
   return (
     <div className="pt-6 px-4 md:pt-8 md:px-8 pb-24 md:pb-12 min-h-screen">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-headline font-bold">Actividades</h1>
-          <p className="text-outline text-sm mt-1">
+          <h1 className="text-xl md:text-2xl font-headline font-bold">Actividades</h1>
+          <p className="text-outline text-[11px] md:text-sm mt-0.5 md:mt-1">
             {allActivities.length} seguimientos programados
             {tabs.vencidos.length > 0 && (
               <span className="text-error font-semibold ml-1"> · {tabs.vencidos.length} vencidos</span>
@@ -139,7 +139,7 @@ export default function Actividades({ contacts, onSelectContact, user, onUpdateC
           <select
             value={userFilter}
             onChange={e => setUserFilter(e.target.value)}
-            className="bg-surface-container border border-outline-variant/30 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary/50"
+            className="w-full sm:w-auto bg-surface-container border border-outline-variant/30 rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-sm text-on-surface focus:outline-none focus:border-primary/50"
           >
             {allUsers.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
@@ -157,7 +157,7 @@ export default function Actividades({ contacts, onSelectContact, user, onUpdateC
             className="w-full pl-9 pr-4 py-2.5 bg-surface-container border border-outline-variant/30 rounded-xl text-sm text-on-surface placeholder-outline focus:outline-none focus:border-primary/50 transition-colors"
           />
         </div>
-        <div className="flex items-center gap-1 bg-surface-container rounded-xl p-1 border border-outline-variant/20 self-start md:self-auto">
+        <div className="flex items-center gap-1 bg-surface-container rounded-xl p-1 border border-outline-variant/20 overflow-x-auto no-scrollbar scroll-smooth">
           {tabConfig.map(tab => (
             <button
               key={tab.key}

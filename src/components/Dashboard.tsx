@@ -265,7 +265,7 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user, onUpd
     <div className="pt-6 px-4 md:pt-8 md:px-8 pb-24 md:pb-12 min-h-screen">
 
       {/* ── KPI Bento Grid ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 md:gap-3 mb-8">
         <div className="bg-surface-container px-3 py-4 rounded-xl border border-outline-variant/5 flex flex-col justify-center">
           <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5 truncate">Contactos</p>
           <div className="flex items-baseline gap-1">
@@ -316,14 +316,14 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user, onUpd
           </div>
         </div>
 
-        <div className="bg-surface-container px-3 py-4 rounded-xl border border-primary/20 shadow-sm shadow-primary/5 bg-gradient-to-br from-surface-container to-primary/5 relative overflow-hidden group flex flex-col justify-center">
+        <div className="bg-surface-container px-3 py-3 md:py-4 rounded-xl border border-primary/20 shadow-sm shadow-primary/5 bg-gradient-to-br from-surface-container to-primary/5 relative overflow-hidden group flex flex-col justify-center">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[100%] group-hover:animate-[shimmer_1.5s_infinite]"></div>
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1 text-primary truncate">
+          <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider mb-1 md:mb-1.5 flex items-center gap-1 text-primary truncate">
             Ingreso Real
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
           </p>
           <div className="flex items-baseline gap-1">
-            <h3 className="font-headline text-xl font-extrabold drop-shadow-sm truncate">${ingresoReal.toLocaleString('es-AR')}</h3>
+            <h3 className="font-headline text-lg md:text-xl font-extrabold truncate">${ingresoReal.toLocaleString('es-AR')}</h3>
           </div>
         </div>
       </div>
@@ -332,10 +332,10 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user, onUpd
       <div className="grid grid-cols-12 gap-4 md:gap-8 mb-8">
 
         {/* Pie Chart — Won / Lost / Active */}
-        <div className="col-span-12 lg:col-span-4 bg-surface-container p-5 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
-          <div className="mb-6">
-            <h4 className="font-headline text-xl font-bold">Unidades</h4>
-            <p className="text-xs text-outline mt-1 font-body">Distribución de contactos por estado</p>
+        <div className="col-span-12 lg:col-span-4 bg-surface-container p-4 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
+          <div className="mb-4 md:mb-6">
+            <h4 className="font-headline text-lg md:text-xl font-bold">Unidades</h4>
+            <p className="text-[11px] md:text-xs text-outline mt-0.5 md:mt-1 font-body">Distribución de contactos por estado</p>
           </div>
 
           {PIE_DATA.length === 0 ? (
@@ -398,11 +398,11 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user, onUpd
         </div>
 
         {/* Line Chart — Daily Income */}
-        <div className="col-span-12 lg:col-span-8 bg-surface-container p-5 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="col-span-12 lg:col-span-8 bg-surface-container p-4 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 md:mb-6">
             <div>
-              <h4 className="font-headline text-xl font-bold">Ingresos por Día</h4>
-              <p className="text-xs text-outline mt-1 font-body">
+              <h4 className="font-headline text-lg md:text-xl font-bold">Ingresos por Día</h4>
+              <p className="text-[11px] md:text-xs text-outline mt-0.5 md:mt-1 font-body">
                 {totalInRange > 0
                   ? <>{formatCurrency(totalInRange)} · {daysWithSales} día{daysWithSales !== 1 ? 's' : ''} con ventas</>
                   : 'Sin ventas en el período seleccionado'}
@@ -503,11 +503,11 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user, onUpd
       {/* ── Charts Row 2: Bar + Funnel ── */}
       <div className="grid grid-cols-12 gap-4 md:gap-8 mb-8">
         {/* Bar — Contacts by user */}
-        <div className="col-span-12 lg:col-span-6 bg-surface-container p-5 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="col-span-12 lg:col-span-6 bg-surface-container p-4 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 md:mb-6">
             <div>
-              <h4 className="font-headline text-xl font-bold">Contactabilidad</h4>
-              <p className="text-xs text-outline mt-1 font-body">Contactos realizados por ejecutivo</p>
+              <h4 className="font-headline text-lg md:text-xl font-bold">Contactabilidad</h4>
+              <p className="text-[11px] md:text-xs text-outline mt-0.5 md:mt-1 font-body">Contactos realizados por ejecutivo</p>
             </div>
             <div className="text-left sm:text-right">
               <p className="text-[10px] text-outline uppercase font-bold tracking-widest">Total Contactados</p>
@@ -532,10 +532,10 @@ export default function Dashboard({ onOpenNewContact, contacts = [], user, onUpd
         </div>
 
         {/* Funnel de Ventas */}
-        <div className="col-span-12 lg:col-span-6 bg-surface-container p-5 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
-          <div className="mb-8">
-            <h4 className="font-headline text-xl font-bold">Funnel de Conversión</h4>
-            <p className="text-xs text-outline mt-1 font-body">Análisis por Etapas de Venta</p>
+        <div className="col-span-12 lg:col-span-6 bg-surface-container p-4 md:p-8 rounded-xl border border-outline-variant/5 min-w-0">
+          <div className="mb-4 md:mb-8">
+            <h4 className="font-headline text-lg md:text-xl font-bold">Funnel de Conversión</h4>
+            <p className="text-[11px] md:text-xs text-outline mt-0.5 md:mt-1 font-body">Análisis por Etapas de Venta</p>
           </div>
           <div className="flex flex-col items-center gap-1.5 py-4">
             {funnelData.map((step, idx) => {
